@@ -1,0 +1,44 @@
+--- a/net/minecraft/world/entity/ai/Brain.java
++++ b/net/minecraft/world/entity/ai/Brain.java
+@@ -15,6 +_,8 @@
+ import com.mojang.serialization.MapCodec;
+ import com.mojang.serialization.MapLike;
+ import com.mojang.serialization.RecordBuilder;
++import it.unimi.dsi.fastutil.ints.Int2ObjectAVLTreeMap;
++import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+ import java.util.Collection;
+ import java.util.List;
+@@ -25,6 +_,10 @@
+ import java.util.function.Supplier;
+ import java.util.stream.Stream;
+ import javax.annotation.Nullable;
++
++import it.unimi.dsi.fastutil.objects.Reference2ObjectLinkedOpenHashMap;
++import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
++import it.unimi.dsi.fastutil.objects.Reference2ObjectMaps;
+ import net.minecraft.core.Registry;
+ import net.minecraft.server.level.ServerLevel;
+ import net.minecraft.util.VisibleForDebug;
+@@ -44,14 +_,14 @@
+    static final Logger f_21841_ = LogUtils.getLogger();
+    private final Supplier<Codec<Brain<E>>> f_21842_;
+    private static final int f_147338_ = 20;
+-   private final Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> f_21843_ = Maps.newHashMap();
+-   private final Map<SensorType<? extends Sensor<? super E>>, Sensor<? super E>> f_21844_ = Maps.newLinkedHashMap();
+-   private final Map<Integer, Map<Activity, Set<Behavior<? super E>>>> f_21845_ = Maps.newTreeMap();
++   private final Map<MemoryModuleType<?>, Optional<? extends ExpirableValue<?>>> f_21843_ = Maps.newConcurrentMap();
++   private final Map<SensorType<? extends Sensor<? super E>>, Sensor<? super E>> f_21844_ = Reference2ObjectMaps.synchronize(new Reference2ObjectLinkedOpenHashMap<>());
++   private final Map<Integer, Map<Activity, Set<Behavior<? super E>>>> f_21845_ = Int2ObjectMaps.synchronize(new Int2ObjectAVLTreeMap<>());
+    private Schedule f_21846_ = Schedule.f_38012_;
+-   private final Map<Activity, Set<Pair<MemoryModuleType<?>, MemoryStatus>>> f_21847_ = Maps.newHashMap();
+-   private final Map<Activity, Set<MemoryModuleType<?>>> f_21848_ = Maps.newHashMap();
+-   private Set<Activity> f_21849_ = Sets.newHashSet();
+-   private final Set<Activity> f_21850_ = Sets.newHashSet();
++   private final Map<Activity, Set<Pair<MemoryModuleType<?>, MemoryStatus>>> f_21847_ = Maps.newConcurrentMap();
++   private final Map<Activity, Set<MemoryModuleType<?>>> f_21848_ = Maps.newConcurrentMap();
++   private Set<Activity> f_21849_ = Sets.newConcurrentHashSet();
++   private final Set<Activity> f_21850_ = Sets.newConcurrentHashSet();
+    private Activity f_21851_ = Activity.f_37979_;
+    private long f_21852_ = -9999L;
+ 

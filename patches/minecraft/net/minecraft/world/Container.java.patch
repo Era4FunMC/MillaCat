@@ -1,0 +1,66 @@
+--- a/net/minecraft/world/Container.java
++++ b/net/minecraft/world/Container.java
+@@ -1,9 +_,16 @@
+ package net.minecraft.world;
+ 
++import java.util.Collections;
+ import java.util.Set;
++
++import net.minecraft.core.BlockPos;
+ import net.minecraft.world.entity.player.Player;
+ import net.minecraft.world.item.Item;
+ import net.minecraft.world.item.ItemStack;
++import net.minecraft.world.item.crafting.Recipe;
++import net.minecraft.world.level.block.entity.BlockEntity;
++import org.bukkit.Location;
++import org.bukkit.craftbukkit.v1_18_R2.entity.CraftHumanEntity;
+ 
+ public interface Container extends Clearable {
+    int f_146642_ = 64;
+@@ -61,4 +_,46 @@
+ 
+       return false;
+    }
++
++   // CraftBukkit start
++   default java.util.List<ItemStack> getContents() {
++      return Collections.emptyList();
++   }
++
++   default void onOpen(CraftHumanEntity who) {} // CatServer
++
++   default void onClose(CraftHumanEntity who) {} // CatServer
++
++   default java.util.List<org.bukkit.entity.HumanEntity> getViewers() {
++      return Collections.emptyList();
++   }
++
++   // CatServer start
++   default org.bukkit.inventory.InventoryHolder getOwner() {
++      return this instanceof BlockEntity ? catserver.server.inventory.CatInventoryUtils.getOwner((net.minecraft.world.level.block.entity.BlockEntity) this) : null;
++   }
++   // CatServer end
++
++   default void setMaxStackSize(int size) {} // CatServer
++
++   // CatServer start
++   default org.bukkit.Location getLocation() {
++      if (this instanceof BlockEntity) {
++         BlockPos blockPos = ((BlockEntity) this).m_58899_();
++         return new Location(((BlockEntity) this).m_58904_().getWorld(), blockPos.m_123341_(), blockPos.m_123342_(), blockPos.m_123343_());
++      } else {
++         return null;
++      }
++   }
++   // CatServer end
++
++   default Recipe getCurrentRecipe() {
++      return null;
++   }
++
++   default void setCurrentRecipe(Recipe recipe) {
++   }
++
++   int MAX_STACK = 64;
++   // CraftBukkit end
+ }

@@ -1,0 +1,329 @@
+--- a/net/minecraft/world/inventory/AbstractContainerMenu.java
++++ b/net/minecraft/world/inventory/AbstractContainerMenu.java
+@@ -1,5 +_,6 @@
+ package net.minecraft.world.inventory;
+ 
++import com.google.common.base.Preconditions;
+ import com.google.common.base.Suppliers;
+ import com.google.common.collect.HashBasedTable;
+ import com.google.common.collect.Lists;
+@@ -8,10 +_,8 @@
+ import com.mojang.logging.LogUtils;
+ import it.unimi.dsi.fastutil.ints.IntArrayList;
+ import it.unimi.dsi.fastutil.ints.IntList;
+-import java.util.List;
+-import java.util.Optional;
+-import java.util.OptionalInt;
+-import java.util.Set;
++
++import java.util.*;
+ import java.util.function.Supplier;
+ import javax.annotation.Nullable;
+ import net.minecraft.CrashReport;
+@@ -19,6 +_,9 @@
+ import net.minecraft.ReportedException;
+ import net.minecraft.core.NonNullList;
+ import net.minecraft.core.Registry;
++import net.minecraft.network.chat.Component;
++import net.minecraft.network.chat.TextComponent;
++import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
+ import net.minecraft.server.level.ServerPlayer;
+ import net.minecraft.util.Mth;
+ import net.minecraft.world.Container;
+@@ -28,6 +_,13 @@
+ import net.minecraft.world.item.ItemStack;
+ import net.minecraft.world.level.block.Block;
+ import net.minecraft.world.level.block.entity.BlockEntity;
++import org.bukkit.craftbukkit.v1_18_R2.inventory.CraftInventory;
++import org.bukkit.craftbukkit.v1_18_R2.inventory.CraftItemStack;
++import org.bukkit.event.Event;
++import org.bukkit.event.inventory.InventoryDragEvent;
++import org.bukkit.event.inventory.InventoryType;
++import org.bukkit.inventory.InventoryView;
++import org.bukkit.inventory.PlayerInventory;
+ import org.slf4j.Logger;
+ 
+ public abstract class AbstractContainerMenu {
+@@ -40,11 +_,11 @@
+    public static final int f_150390_ = 1;
+    public static final int f_150391_ = 2;
+    public static final int f_150392_ = Integer.MAX_VALUE;
+-   private final NonNullList<ItemStack> f_38841_ = NonNullList.m_122779_();
+-   public final NonNullList<Slot> f_38839_ = NonNullList.m_122779_();
++   public NonNullList<ItemStack> f_38841_ = NonNullList.m_122779_();
++   public NonNullList<Slot> f_38839_ = NonNullList.m_122779_();
+    private final List<DataSlot> f_38842_ = Lists.newArrayList();
+    private ItemStack f_150393_ = ItemStack.f_41583_;
+-   private final NonNullList<ItemStack> f_150394_ = NonNullList.m_122779_();
++   public NonNullList<ItemStack> f_150394_ = NonNullList.m_122779_();
+    private final IntList f_150395_ = new IntArrayList();
+    private ItemStack f_150396_ = ItemStack.f_41583_;
+    private int f_182405_;
+@@ -58,6 +_,94 @@
+    @Nullable
+    private ContainerSynchronizer f_150397_;
+    private boolean f_150398_;
++   // CraftBukkit start
++   public boolean checkReachable = true;
++
++   // CatServer start
++   private boolean isBukkitViewCreated;
++
++   public InventoryView bukkitView;
++
++   @Nullable
++   public InventoryView getBukkitView() {
++      if (!isBukkitViewCreated) {
++         isBukkitViewCreated = true;
++         bukkitView = computeBukkitView();
++         return bukkitView;
++      }
++      return bukkitView;
++   }
++
++   public void setBukkitView(InventoryView iv) {
++      bukkitView = iv;
++      isBukkitViewCreated = true;
++   }
++
++   @Nullable
++   public InventoryView computeBukkitView() {
++      Set<Container> uniqueInventorySet = new java.util.HashSet<>();
++      for(Slot slot : f_38839_) {
++         if (slot.f_40218_ != null) {
++            uniqueInventorySet.add(slot.f_40218_);
++         }
++      }
++      List<Container> inventories = new java.util.ArrayList<>(uniqueInventorySet);
++      Inventory playerInv = null;
++
++      for(java.util.Iterator<Container> it = inventories.iterator(); it.hasNext();) {
++         Container inv = it.next();
++         if(inv instanceof Inventory) {
++            playerInv = (Inventory) inv;
++            it.remove();
++            break;
++         } else if (inv instanceof net.minecraftforge.items.wrapper.PlayerInvWrapper) {
++            playerInv = catserver.server.inventory.CatCustomInventory.getPlayerInv((net.minecraftforge.items.wrapper.PlayerInvWrapper) inv);
++            it.remove();
++            break;
++         }
++      }
++      if(playerInv == null) return null;
++      org.bukkit.craftbukkit.v1_18_R2.entity.CraftPlayer bukkitPlayer = (org.bukkit.craftbukkit.v1_18_R2.entity.CraftPlayer) playerInv.f_35978_.getBukkitEntity();
++      org.bukkit.inventory.Inventory craftInv;
++      if(inventories.size() != 1)
++         craftInv = org.bukkit.Bukkit.getServer().createInventory(bukkitPlayer, InventoryType.CHEST);
++      else
++         craftInv = new CraftInventory(inventories.get(0));
++
++      return new org.bukkit.craftbukkit.v1_18_R2.inventory.CraftInventoryView(bukkitPlayer, craftInv, this);
++   }
++
++   public void transferTo(AbstractContainerMenu other, org.bukkit.craftbukkit.v1_18_R2.entity.CraftHumanEntity player) {
++      InventoryView source = this.getBukkitView(), destination = other.getBukkitView();
++      if (source != null) {
++         ((CraftInventory) source.getTopInventory()).getInventory().onClose(player);
++         ((CraftInventory) source.getBottomInventory()).getInventory().onClose(player);
++      }
++      if (destination != null) {
++         ((CraftInventory) destination.getTopInventory()).getInventory().onOpen(player);
++         ((CraftInventory) destination.getBottomInventory()).getInventory().onOpen(player);
++      }
++   }
++   // CatServer end
++
++   private Component title;
++
++   public final Component getTitle() {
++      return this.title == null ? TextComponent.f_131282_ : this.title; // CatServer
++   }
++
++   public final void setTitle(Component title) {
++      Preconditions.checkState(this.title == null, "Title already set");
++      this.title = title;
++   }
++
++   public void broadcastCarriedItem() {
++      this.f_150396_ = this.m_142621_().m_41777_();
++      if (this.f_150397_ != null) {
++         this.f_150397_.m_142529_(this, this.f_150396_);
++      }
++   }
++   // CraftBukkit end
+ 
+    protected AbstractContainerMenu(@Nullable MenuType<?> p_38851_, int p_38852_) {
+       this.f_38843_ = p_38851_;
+@@ -211,9 +_,11 @@
+    private void m_150407_(int p_150408_, ItemStack p_150409_, Supplier<ItemStack> p_150410_) {
+       ItemStack itemstack = this.f_38841_.get(p_150408_);
+       if (!ItemStack.m_41728_(itemstack, p_150409_)) {
++         boolean clientStackChanged = !p_150409_.equals(itemstack, true);
+          ItemStack itemstack1 = p_150410_.get();
+          this.f_38841_.set(p_150408_, itemstack1);
+ 
++         if(clientStackChanged)
+          for(ContainerListener containerlistener : this.f_38848_) {
+             containerlistener.m_7934_(this, p_150408_, itemstack1);
+          }
+@@ -285,7 +_,7 @@
+    }
+ 
+    public ItemStack m_7648_(Player p_38941_, int p_38942_) {
+-      return this.f_38839_.get(p_38942_).m_7993_();
++      return ItemStack.f_41583_; // CraftBukkit - previous implementation was useless and broken
+    }
+ 
+    public void m_150399_(int p_150400_, int p_150401_, ClickType p_150402_, Player p_150403_) {
+@@ -333,7 +_,7 @@
+             }
+          } else if (this.f_38846_ == 2) {
+             if (!this.f_38847_.isEmpty()) {
+-               if (this.f_38847_.size() == 1) {
++               if (false && this.f_38847_.size() == 1) { // CraftBukkit - treat everything as a drag since we are unable to easily call InventoryClickEvent instead
+                   int l = (this.f_38847_.iterator().next()).f_40219_;
+                   this.m_38951_();
+                   this.m_150430_(l, this.f_38845_, ClickType.PICKUP, p_150434_);
+@@ -343,6 +_,7 @@
+                ItemStack itemstack3 = this.m_142621_().m_41777_();
+                int j1 = this.m_142621_().m_41613_();
+ 
++               Map<Integer, ItemStack> draggedSlots = new HashMap<Integer, ItemStack>(); // CraftBukkit - Store slots from drag in map (raw slot id -> new stack)
+                for(Slot slot1 : this.f_38847_) {
+                   ItemStack itemstack1 = this.m_142621_();
+                   if (slot1 != null && m_38899_(slot1, itemstack1, true) && slot1.m_5857_(itemstack1) && (this.f_38845_ == 2 || itemstack1.m_41613_() >= this.f_38847_.size()) && this.m_5622_(slot1)) {
+@@ -355,12 +_,45 @@
+                      }
+ 
+                      j1 -= itemstack2.m_41613_() - j;
+-                     slot1.m_5852_(itemstack2);
++                     // slot1.set(itemstack2);
++                     draggedSlots.put(slot1.f_40219_, itemstack2); // CraftBukkit - Put in map instead of setting
+                   }
+                }
+ 
+-               itemstack3.m_41764_(j1);
+-               this.m_142503_(itemstack3);
++               //itemstack3.setCount(j1);
++               //this.setCarried(itemstack3);
++               // CraftBukkit start - InventoryDragEvent
++               InventoryView view = getBukkitView();
++               org.bukkit.inventory.ItemStack newcursor = CraftItemStack.asCraftMirror(itemstack3);
++               newcursor.setAmount(j1);
++               Map<Integer, org.bukkit.inventory.ItemStack> eventmap = new HashMap<>();
++               for (Map.Entry<Integer, ItemStack> ditem : draggedSlots.entrySet()) {
++                  eventmap.put(ditem.getKey(), CraftItemStack.asBukkitCopy(ditem.getValue()));
++               }
++               // It's essential that we set the cursor to the new value here to prevent item duplication if a plugin closes the inventory.
++               ItemStack oldCursor = this.m_142621_();
++               this.m_142503_(CraftItemStack.asNMSCopy(newcursor));
++               InventoryDragEvent event = new InventoryDragEvent(view, (newcursor.getType() != org.bukkit.Material.AIR ? newcursor : null), CraftItemStack.asBukkitCopy(oldCursor), this.f_38845_ == 1, eventmap);
++               p_150434_.f_19853_.getCraftServer().getPluginManager().callEvent(event);
++               // Whether or not a change was made to the inventory that requires an update.
++               boolean needsUpdate = event.getResult() != Event.Result.DEFAULT;
++               if (event.getResult() != Event.Result.DENY) {
++                  for (Map.Entry<Integer, ItemStack> dslot : draggedSlots.entrySet()) {
++                     view.setItem(dslot.getKey(), CraftItemStack.asBukkitCopy(dslot.getValue()));
++                  }
++                  // The only time the carried item will be set to null is if the inventory is closed by the server.
++                  // If the inventory is closed by the server, then the cursor items are dropped.  This is why we change the cursor early.
++                  if (this.m_142621_() != null) {
++                     this.m_142503_(CraftItemStack.asNMSCopy(event.getCursor()));
++                     needsUpdate = true;
++                  }
++               } else {
++                  this.m_142503_(oldCursor);
++               }
++               if (needsUpdate && p_150434_ instanceof ServerPlayer) {
++                  this.m_150429_();
++               }
++               // CraftBukkit end
+             }
+ 
+             this.m_38951_();
+@@ -374,8 +_,11 @@
+          if (p_150431_ == -999) {
+             if (!this.m_142621_().m_41619_()) {
+                if (clickaction == ClickAction.PRIMARY) {
+-                  p_150434_.m_36176_(this.m_142621_(), true);
++                  // CraftBukkit start
++                  ItemStack carried = this.m_142621_();
+                   this.m_142503_(ItemStack.f_41583_);
++                  p_150434_.m_36176_(carried, true);
++                  // CraftBukkit end
+                } else {
+                   p_150434_.m_36176_(this.m_142621_().m_41620_(1), true);
+                }
+@@ -434,6 +_,15 @@
+             }
+ 
+             slot7.m_6654_();
++            // CraftBukkit start - Make sure the client has the right slot contents
++            if (p_150434_ instanceof ServerPlayer && slot7.m_6641_() != 64) {
++               ((ServerPlayer) p_150434_).f_8906_.m_141995_(new ClientboundContainerSetSlotPacket(this.f_38840_, this.m_182425_(), slot7.f_40219_, slot7.m_7993_()));
++               // Updating a crafting inventory makes the client reset the result slot, have to send it again
++               if (this.getBukkitView().getType() == InventoryType.WORKBENCH || this.getBukkitView().getType() == InventoryType.CRAFTING) {
++                  ((ServerPlayer) p_150434_).f_8906_.m_141995_(new ClientboundContainerSetSlotPacket(this.f_38840_, this.m_182425_(), 0, this.m_38853_(0).m_7993_()));
++               }
++            }
++            // CraftBukkit end
+          }
+       } else if (p_150433_ == ClickType.SWAP) {
+          Slot slot2 = this.f_38839_.get(p_150431_);
+@@ -529,13 +_,14 @@
+       if (p_38940_ instanceof ServerPlayer) {
+          ItemStack itemstack = this.m_142621_();
+          if (!itemstack.m_41619_()) {
++            this.m_142503_(ItemStack.f_41583_); // CraftBukkit - SPIGOT-4556 - from below
+             if (p_38940_.m_6084_() && !((ServerPlayer)p_38940_).m_9232_()) {
+                p_38940_.m_150109_().m_150079_(itemstack);
+             } else {
+                p_38940_.m_36176_(itemstack, false);
+             }
+ 
+-            this.m_142503_(ItemStack.f_41583_);
++            // this.setCarried(ItemStack.EMPTY); // CraftBukkit - moved up
+          }
+       }
+ 
+@@ -603,14 +_,15 @@
+             ItemStack itemstack = slot.m_7993_();
+             if (!itemstack.m_41619_() && ItemStack.m_150942_(p_38904_, itemstack)) {
+                int j = itemstack.m_41613_() + p_38904_.m_41613_();
+-               if (j <= p_38904_.m_41741_()) {
++               int maxSize = Math.min(slot.m_6641_(), p_38904_.m_41741_());
++               if (j <= maxSize) {
+                   p_38904_.m_41764_(0);
+                   itemstack.m_41764_(j);
+                   slot.m_6654_();
+                   flag = true;
+-               } else if (itemstack.m_41613_() < p_38904_.m_41741_()) {
+-                  p_38904_.m_41774_(p_38904_.m_41741_() - itemstack.m_41613_());
+-                  itemstack.m_41764_(p_38904_.m_41741_());
++               } else if (itemstack.m_41613_() < maxSize) {
++                  p_38904_.m_41774_(maxSize - itemstack.m_41613_());
++                  itemstack.m_41764_(maxSize);
+                   slot.m_6654_();
+                   flag = true;
+                }
+@@ -710,7 +_,7 @@
+          p_38925_.m_41764_(1);
+          break;
+       case 2:
+-         p_38925_.m_41764_(p_38925_.m_41720_().m_41459_());
++         p_38925_.m_41764_(p_38925_.m_41741_());
+       }
+ 
+       p_38925_.m_41769_(p_38926_);
+@@ -749,6 +_,11 @@
+    }
+ 
+    public ItemStack m_142621_() {
++      // CraftBukkit start
++      if (this.f_150393_.m_41619_()) {
++         this.m_142503_(ItemStack.f_41583_);
++      }
++      // CraftBukkit end
+       return this.f_150393_;
+    }
+ 

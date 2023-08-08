@@ -1,0 +1,84 @@
+--- a/net/minecraft/commands/arguments/selector/EntitySelectorParser.java
++++ b/net/minecraft/commands/arguments/selector/EntitySelectorParser.java
+@@ -11,6 +_,7 @@
+ import java.util.List;
+ import java.util.UUID;
+ import java.util.concurrent.CompletableFuture;
++import java.util.concurrent.atomic.AtomicBoolean;
+ import java.util.function.BiConsumer;
+ import java.util.function.BiFunction;
+ import java.util.function.Consumer;
+@@ -196,8 +_,16 @@
+       };
+    }
+ 
++   // CatServer start
++   private AtomicBoolean catserver$isOverrideParseSelector = new AtomicBoolean(false);
++   protected void parseSelector(boolean override) throws CommandSyntaxException {
++      this.catserver$isOverrideParseSelector.set(override);
++      this.m_121281_();
++   }
++
+    protected void m_121281_() throws CommandSyntaxException {
+-      this.f_121189_ = true;
++      var overridePermissions = this.catserver$isOverrideParseSelector.getAndSet(false); // CatServer
++      this.f_121189_ = !overridePermissions; // CraftBukkit
+       this.f_121176_ = this::m_121322_;
+       if (!this.f_121201_.canRead()) {
+          throw f_121193_.createWithContext(this.f_121201_);
+@@ -241,9 +_,9 @@
+             this.f_121176_ = this::m_121341_;
+             this.m_121317_();
+          }
+-
+       }
+    }
++   // CatServer end
+ 
+    protected void m_121304_() throws CommandSyntaxException {
+       if (this.f_121201_.canRead()) {
+@@ -452,7 +_,16 @@
+       this.f_121171_ = p_121269_;
+    }
+ 
++
++   // CatServer start
++   public AtomicBoolean catserver$captureParseOverride = new AtomicBoolean(false);
++   public EntitySelector parse(boolean override) throws CommandSyntaxException {
++      this.catserver$captureParseOverride.set(override);
++      return this.m_121377_();
++   }
++
+    public EntitySelector m_121377_() throws CommandSyntaxException {
++      var overridePermissions = this.catserver$captureParseOverride.getAndSet(false);
+       this.f_121174_ = this.f_121201_.getCursor();
+       this.f_121176_ = this::m_121286_;
+       if (this.f_121201_.canRead() && this.f_121201_.peek() == '@') {
+@@ -461,7 +_,10 @@
+          }
+ 
+          this.f_121201_.skip();
+-         this.m_121281_();
++         EntitySelector forgeSelector = net.minecraftforge.common.command.EntitySelectorManager.parseSelector(this);
++         if (forgeSelector != null)
++            return forgeSelector;
++         this.parseSelector(overridePermissions); // CraftBukkit
+       } else {
+          this.m_121304_();
+       }
+@@ -469,6 +_,7 @@
+       this.m_121229_();
+       return this.m_121230_();
+    }
++   // CatServer end
+ 
+    private static void m_121247_(SuggestionsBuilder p_121248_) {
+       p_121248_.suggest("@p", new TranslatableComponent("argument.entity.selector.nearestPlayer"));
+@@ -476,6 +_,7 @@
+       p_121248_.suggest("@r", new TranslatableComponent("argument.entity.selector.randomPlayer"));
+       p_121248_.suggest("@s", new TranslatableComponent("argument.entity.selector.self"));
+       p_121248_.suggest("@e", new TranslatableComponent("argument.entity.selector.allEntities"));
++      net.minecraftforge.common.command.EntitySelectorManager.fillSelectorSuggestions(p_121248_);
+    }
+ 
+    private CompletableFuture<Suggestions> m_121286_(SuggestionsBuilder p_121287_, Consumer<SuggestionsBuilder> p_121288_) {

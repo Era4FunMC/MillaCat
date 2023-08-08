@@ -1,0 +1,122 @@
+--- a/net/minecraft/server/level/TickingTracker.java
++++ b/net/minecraft/server/level/TickingTracker.java
+@@ -7,6 +_,9 @@
+ import it.unimi.dsi.fastutil.longs.Long2ObjectMap.Entry;
+ import java.util.ArrayList;
+ import java.util.List;
++import java.util.concurrent.locks.ReadWriteLock;
++import java.util.concurrent.locks.ReentrantReadWriteLock;
++
+ import net.minecraft.util.SortedArraySet;
+ import net.minecraft.world.level.ChunkPos;
+ 
+@@ -14,6 +_,7 @@
+    private static final int f_184142_ = 4;
+    protected final Long2ByteMap f_184141_ = new Long2ByteOpenHashMap();
+    private final Long2ObjectOpenHashMap<SortedArraySet<Ticket<?>>> f_184143_ = new Long2ObjectOpenHashMap<>();
++   private final ReadWriteLock accessLock = new ReentrantReadWriteLock();
+ 
+    public TickingTracker() {
+       super(34, 16, 256);
+@@ -21,9 +_,7 @@
+    }
+ 
+    private SortedArraySet<Ticket<?>> m_184177_(long p_184178_) {
+-      return this.f_184143_.computeIfAbsent(p_184178_, (p_184180_) -> {
+-         return SortedArraySet.m_14246_(4);
+-      });
++      return this.f_184143_.computeIfAbsent(p_184178_, (p_184180_) -> SortedArraySet.m_14246_(4));
+    }
+ 
+    private int m_184159_(SortedArraySet<Ticket<?>> p_184160_) {
+@@ -31,9 +_,15 @@
+    }
+ 
+    public void m_184151_(long p_184152_, Ticket<?> p_184153_) {
+-      SortedArraySet<Ticket<?>> sortedarrayset = this.m_184177_(p_184152_);
+-      int i = this.m_184159_(sortedarrayset);
+-      sortedarrayset.add(p_184153_);
++      int i;
++      this.accessLock.writeLock().lock();
++      try {
++         SortedArraySet<Ticket<?>> sortedarrayset = this.m_184177_(p_184152_);
++         i = this.m_184159_(sortedarrayset);
++         sortedarrayset.add(p_184153_);
++      }finally {
++         this.accessLock.writeLock().unlock();
++      }
+       if (p_184153_.m_9433_() < i) {
+          this.m_140715_(p_184152_, p_184153_.m_9433_(), true);
+       }
+@@ -41,10 +_,16 @@
+    }
+ 
+    public void m_184165_(long p_184166_, Ticket<?> p_184167_) {
+-      SortedArraySet<Ticket<?>> sortedarrayset = this.m_184177_(p_184166_);
+-      sortedarrayset.remove(p_184167_);
+-      if (sortedarrayset.isEmpty()) {
+-         this.f_184143_.remove(p_184166_);
++      SortedArraySet<Ticket<?>> sortedarrayset;
++      this.accessLock.writeLock().lock();
++      try {
++         sortedarrayset = this.m_184177_(p_184166_);
++         sortedarrayset.remove(p_184167_);
++         if (sortedarrayset.isEmpty()) {
++            this.f_184143_.remove(p_184166_);
++         }
++      }finally {
++         this.accessLock.writeLock().unlock();
+       }
+ 
+       this.m_140715_(p_184166_, this.m_184159_(sortedarrayset), false);
+@@ -62,12 +_,17 @@
+    public void m_184146_(int p_184147_) {
+       List<Pair<Ticket<ChunkPos>, Long>> list = new ArrayList<>();
+ 
+-      for(Entry<SortedArraySet<Ticket<?>>> entry : this.f_184143_.long2ObjectEntrySet()) {
+-         for(Ticket<?> ticket : entry.getValue()) {
+-            if (ticket.m_9428_() == TicketType.f_9444_) {
+-               list.add(Pair.of((Ticket<ChunkPos>)ticket, entry.getLongKey()));
++      this.accessLock.readLock().lock();
++      try {
++         for(Entry<SortedArraySet<Ticket<?>>> entry : this.f_184143_.long2ObjectEntrySet()) {
++            for(Ticket<?> ticket : entry.getValue()) {
++               if (ticket.m_9428_() == TicketType.f_9444_) {
++                  list.add(Pair.of((Ticket<ChunkPos>)ticket, entry.getLongKey()));
++               }
+             }
+          }
++      }finally {
++         this.accessLock.readLock().unlock();
+       }
+ 
+       for(Pair<Ticket<ChunkPos>, Long> pair : list) {
+@@ -87,7 +_,12 @@
+    }
+ 
+    public int m_184161_(ChunkPos p_184162_) {
+-      return this.m_6172_(p_184162_.m_45588_());
++      this.accessLock.readLock().lock();
++      try {
++         return this.m_6172_(p_184162_.m_45588_());
++      }finally {
++         this.accessLock.readLock().unlock();
++      }
+    }
+ 
+    protected int m_6172_(long p_184174_) {
+@@ -108,7 +_,12 @@
+    }
+ 
+    public String m_184175_(long p_184176_) {
+-      SortedArraySet<Ticket<?>> sortedarrayset = this.f_184143_.get(p_184176_);
+-      return sortedarrayset != null && !sortedarrayset.isEmpty() ? sortedarrayset.m_14262_().toString() : "no_ticket";
++      this.accessLock.readLock().lock();
++      try {
++         SortedArraySet<Ticket<?>> sortedarrayset = this.f_184143_.get(p_184176_);
++         return sortedarrayset != null && !sortedarrayset.isEmpty() ? sortedarrayset.m_14262_().toString() : "no_ticket";
++      }finally {
++         this.accessLock.readLock().unlock();
++      }
+    }
+ }

@@ -1,0 +1,90 @@
+--- a/net/minecraft/world/entity/ai/gossip/GossipContainer.java
++++ b/net/minecraft/world/entity/ai/gossip/GossipContainer.java
+@@ -31,7 +_,7 @@
+    private final Map<UUID, GossipContainer.EntityGossips> f_26156_ = Maps.newHashMap();
+ 
+    @VisibleForDebug
+-   public Map<UUID, Object2IntMap<GossipType>> m_148159_() {
++   public synchronized Map<UUID, Object2IntMap<GossipType>> m_148159_() {
+       Map<UUID, Object2IntMap<GossipType>> map = Maps.newHashMap();
+       this.f_26156_.keySet().forEach((p_148167_) -> {
+          GossipContainer.EntityGossips gossipcontainer$entitygossips = this.f_26156_.get(p_148167_);
+@@ -40,7 +_,7 @@
+       return map;
+    }
+ 
+-   public void m_26198_() {
++   public synchronized void m_26198_() {
+       Iterator<GossipContainer.EntityGossips> iterator = this.f_26156_.values().iterator();
+ 
+       while(iterator.hasNext()) {
+@@ -91,7 +_,7 @@
+       });
+    }
+ 
+-   public void m_26163_(GossipContainer p_26164_, Random p_26165_, int p_26166_) {
++   public synchronized void m_26163_(GossipContainer p_26164_, Random p_26165_, int p_26166_) {
+       Collection<GossipContainer.GossipEntry> collection = p_26164_.m_26186_(p_26165_, p_26166_);
+       collection.forEach((p_26200_) -> {
+          int i = p_26200_.f_26230_ - p_26200_.f_26229_.f_26277_;
+@@ -102,18 +_,18 @@
+       });
+    }
+ 
+-   public int m_26195_(UUID p_26196_, Predicate<GossipType> p_26197_) {
++   public synchronized int m_26195_(UUID p_26196_, Predicate<GossipType> p_26197_) {
+       GossipContainer.EntityGossips gossipcontainer$entitygossips = this.f_26156_.get(p_26196_);
+       return gossipcontainer$entitygossips != null ? gossipcontainer$entitygossips.m_26220_(p_26197_) : 0;
+    }
+ 
+-   public long m_148162_(GossipType p_148163_, DoublePredicate p_148164_) {
++   public synchronized long m_148162_(GossipType p_148163_, DoublePredicate p_148164_) {
+       return this.f_26156_.values().stream().filter((p_148174_) -> {
+          return p_148164_.test((double)(p_148174_.f_26204_.getOrDefault(p_148163_, 0) * p_148163_.f_26274_));
+       }).count();
+    }
+ 
+-   public void m_26191_(UUID p_26192_, GossipType p_26193_, int p_26194_) {
++   public synchronized void m_26191_(UUID p_26192_, GossipType p_26193_, int p_26194_) {
+       GossipContainer.EntityGossips gossipcontainer$entitygossips = this.m_26189_(p_26192_);
+       gossipcontainer$entitygossips.f_26204_.mergeInt(p_26193_, p_26194_, (p_186096_, p_186097_) -> {
+          return this.m_26167_(p_26193_, p_186096_, p_186097_);
+@@ -125,11 +_,11 @@
+ 
+    }
+ 
+-   public void m_148175_(UUID p_148176_, GossipType p_148177_, int p_148178_) {
++   public synchronized void m_148175_(UUID p_148176_, GossipType p_148177_, int p_148178_) {
+       this.m_26191_(p_148176_, p_148177_, -p_148178_);
+    }
+ 
+-   public void m_148168_(UUID p_148169_, GossipType p_148170_) {
++   public synchronized void m_148168_(UUID p_148169_, GossipType p_148170_) {
+       GossipContainer.EntityGossips gossipcontainer$entitygossips = this.f_26156_.get(p_148169_);
+       if (gossipcontainer$entitygossips != null) {
+          gossipcontainer$entitygossips.m_26226_(p_148170_);
+@@ -140,7 +_,7 @@
+ 
+    }
+ 
+-   public void m_148160_(GossipType p_148161_) {
++   public synchronized void m_148160_(GossipType p_148161_) {
+       Iterator<GossipContainer.EntityGossips> iterator = this.f_26156_.values().iterator();
+ 
+       while(iterator.hasNext()) {
+@@ -153,13 +_,13 @@
+ 
+    }
+ 
+-   public <T> Dynamic<T> m_26179_(DynamicOps<T> p_26180_) {
++   public synchronized <T> Dynamic<T> m_26179_(DynamicOps<T> p_26180_) {
+       return new Dynamic<>(p_26180_, p_26180_.createList(this.m_26203_().map((p_26183_) -> {
+          return p_26183_.m_26238_(p_26180_);
+       }).map(Dynamic::getValue)));
+    }
+ 
+-   public void m_26177_(Dynamic<?> p_26178_) {
++   public synchronized void m_26177_(Dynamic<?> p_26178_) {
+       p_26178_.asStream().map(GossipContainer.GossipEntry::m_26236_).flatMap((p_26176_) -> {
+          return p_26176_.result().stream();
+       }).forEach((p_26162_) -> {

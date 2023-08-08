@@ -1,0 +1,73 @@
+--- a/net/minecraft/world/level/entity/EntityTickList.java
++++ b/net/minecraft/world/level/entity/EntityTickList.java
+@@ -1,62 +_,28 @@
+ package net.minecraft.world.level.entity;
+ 
+-import it.unimi.dsi.fastutil.ints.Int2ObjectLinkedOpenHashMap;
+-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+-import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+-import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
++import com.google.common.collect.Lists;
++import java.util.List;
+ import java.util.function.Consumer;
+-import javax.annotation.Nullable;
+ import net.minecraft.world.entity.Entity;
+ 
+ public class EntityTickList {
+-   private Int2ObjectMap<Entity> f_156903_ = new Int2ObjectLinkedOpenHashMap<>();
+-   private Int2ObjectMap<Entity> f_156904_ = new Int2ObjectLinkedOpenHashMap<>();
+-   @Nullable
+-   private Int2ObjectMap<Entity> f_156905_;
+-
+-   private void m_156907_() {
+-      if (this.f_156905_ == this.f_156903_) {
+-         this.f_156904_.clear();
+-
+-         for(Entry<Entity> entry : Int2ObjectMaps.fastIterable(this.f_156903_)) {
+-            this.f_156904_.put(entry.getIntKey(), entry.getValue());
+-         }
+-
+-         Int2ObjectMap<Entity> int2objectmap = this.f_156903_;
+-         this.f_156903_ = this.f_156904_;
+-         this.f_156904_ = int2objectmap;
+-      }
+-
+-   }
++   public final List<Entity> entities = Lists.newCopyOnWriteArrayList();
+ 
+    public void m_156908_(Entity p_156909_) {
+-      this.m_156907_();
+-      this.f_156903_.put(p_156909_.m_142049_(), p_156909_);
++      this.entities.add(p_156909_);
+    }
+ 
+    public void m_156912_(Entity p_156913_) {
+-      this.m_156907_();
+-      this.f_156903_.remove(p_156913_.m_142049_());
++      this.entities.remove(p_156913_);
+    }
+ 
+    public boolean m_156914_(Entity p_156915_) {
+-      return this.f_156903_.containsKey(p_156915_.m_142049_());
++      return this.entities.contains(p_156915_);
+    }
+ 
+    public void m_156910_(Consumer<Entity> p_156911_) {
+-      if (this.f_156905_ != null) {
+-         throw new UnsupportedOperationException("Only one concurrent iteration supported");
+-      } else {
+-         this.f_156905_ = this.f_156903_;
+-
+-         try {
+-            for(Entity entity : this.f_156903_.values()) {
+-               p_156911_.accept(entity);
+-            }
+-         } finally {
+-            this.f_156905_ = null;
+-         }
+-
++      for (Entity e : this.entities){
++         p_156911_.accept(e);
+       }
+    }
+ }

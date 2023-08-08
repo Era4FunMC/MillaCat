@@ -1,0 +1,67 @@
+--- a/net/minecraft/world/inventory/StonecutterMenu.java
++++ b/net/minecraft/world/inventory/StonecutterMenu.java
+@@ -14,6 +_,10 @@
+ import net.minecraft.world.item.crafting.StonecutterRecipe;
+ import net.minecraft.world.level.Level;
+ import net.minecraft.world.level.block.Blocks;
++import org.bukkit.Location;
++import org.bukkit.craftbukkit.v1_18_R2.inventory.CraftInventoryStonecutter;
++import org.bukkit.craftbukkit.v1_18_R2.inventory.CraftInventoryView;
++import org.bukkit.inventory.InventoryView;
+ 
+ public class StonecutterMenu extends AbstractContainerMenu {
+    public static final int f_150665_ = 0;
+@@ -30,6 +_,8 @@
+    long f_40290_;
+    final Slot f_40282_;
+    final Slot f_40283_;
++   private CraftInventoryView bukkitEntity = null;
++   private org.bukkit.entity.Player player;
+    Runnable f_40291_ = () -> {
+    };
+    public final Container f_40284_ = new SimpleContainer(1) {
+@@ -38,6 +_,11 @@
+          StonecutterMenu.this.m_6199_(this);
+          StonecutterMenu.this.f_40291_.run();
+       }
++
++      @Override
++      public Location getLocation() {
++         return f_40285_.getLocation();
++      }
+    };
+    final ResultContainer f_40292_ = new ResultContainer();
+ 
+@@ -86,6 +_,7 @@
+       }
+ 
+       this.m_38895_(this.f_40286_);
++      player = (org.bukkit.entity.Player) p_40298_.f_35978_.getBukkitEntity(); // CraftBukkit
+    }
+ 
+    public int m_40338_() {
+@@ -105,6 +_,7 @@
+    }
+ 
+    public boolean m_6875_(Player p_40307_) {
++      if (!this.checkReachable) return true; // CraftBukkit
+       return m_38889_(this.f_40285_, p_40307_, Blocks.f_50679_);
+    }
+ 
+@@ -150,6 +_,16 @@
+       }
+ 
+       this.m_38946_();
++   }
++
++   @Override
++   public InventoryView getBukkitView() {
++      if (bukkitEntity != null) {
++         return bukkitEntity;
++      }
++      CraftInventoryStonecutter inventory = new CraftInventoryStonecutter(this.f_40284_, this.f_40292_);
++      bukkitEntity = new CraftInventoryView(this.player, inventory, this);
++      return bukkitEntity;
+    }
+ 
+    public MenuType<?> m_6772_() {

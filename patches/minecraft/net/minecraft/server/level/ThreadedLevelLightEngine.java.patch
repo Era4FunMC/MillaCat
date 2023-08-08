@@ -1,0 +1,20 @@
+--- a/net/minecraft/server/level/ThreadedLevelLightEngine.java
++++ b/net/minecraft/server/level/ThreadedLevelLightEngine.java
+@@ -9,6 +_,8 @@
+ import java.util.concurrent.atomic.AtomicBoolean;
+ import java.util.function.IntSupplier;
+ import javax.annotation.Nullable;
++
++import it.unimi.dsi.fastutil.objects.ObjectLists;
+ import net.minecraft.Util;
+ import net.minecraft.core.BlockPos;
+ import net.minecraft.core.SectionPos;
+@@ -26,7 +_,7 @@
+ public class ThreadedLevelLightEngine extends LevelLightEngine implements AutoCloseable {
+    private static final Logger f_9296_ = LogUtils.getLogger();
+    private final ProcessorMailbox<Runnable> f_9297_;
+-   private final ObjectList<Pair<ThreadedLevelLightEngine.TaskType, Runnable>> f_9298_ = new ObjectArrayList<>();
++   private final ObjectList<Pair<ThreadedLevelLightEngine.TaskType, Runnable>> f_9298_ = ObjectLists.synchronize(new ObjectArrayList<>());
+    private final ChunkMap f_9299_;
+    private final ProcessorHandle<ChunkTaskPriorityQueueSorter.Message<Runnable>> f_9300_;
+    private volatile int f_9301_ = 5;

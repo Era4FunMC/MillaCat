@@ -1,0 +1,93 @@
+--- a/net/minecraft/world/level/block/piston/PistonMovingBlockEntity.java
++++ b/net/minecraft/world/level/block/piston/PistonMovingBlockEntity.java
+@@ -33,9 +_,7 @@
+    private Direction f_60335_;
+    private boolean f_60336_;
+    private boolean f_60337_;
+-   private static final ThreadLocal<Direction> f_60338_ = ThreadLocal.withInitial(() -> {
+-      return null;
+-   });
++   private static final ThreadLocal<Direction> f_60338_ = ThreadLocal.withInitial(() -> null);
+    private float f_60339_;
+    private float f_60340_;
+    private long f_60341_;
+@@ -106,7 +_,7 @@
+          List<Entity> list = p_155911_.m_45933_((Entity)null, PistonMath.m_60328_(aabb, direction, d0).m_82367_(aabb));
+          if (!list.isEmpty()) {
+             List<AABB> list1 = voxelshape.m_83299_();
+-            boolean flag = p_155914_.f_60334_.m_60713_(Blocks.f_50374_);
++            boolean flag = p_155914_.f_60334_.isSlimeBlock(); //TODO: is this patch really needed the logic of the original seems sound revisit later
+             Iterator iterator = list.iterator();
+ 
+             while(true) {
+@@ -269,39 +_,41 @@
+    }
+ 
+    public static void m_155915_(Level p_155916_, BlockPos p_155917_, BlockState p_155918_, PistonMovingBlockEntity p_155919_) {
+-      p_155919_.f_60341_ = p_155916_.m_46467_();
+-      p_155919_.f_60340_ = p_155919_.f_60339_;
+-      if (p_155919_.f_60340_ >= 1.0F) {
+-         if (p_155916_.f_46443_ && p_155919_.f_60342_ < 5) {
+-            ++p_155919_.f_60342_;
++      synchronized (p_155919_){
++         p_155919_.f_60341_ = p_155916_.m_46467_();
++         p_155919_.f_60340_ = p_155919_.f_60339_;
++         if (p_155919_.f_60340_ >= 1.0F) {
++            if (p_155916_.f_46443_ && p_155919_.f_60342_ < 5) {
++               ++p_155919_.f_60342_;
++            } else {
++               p_155916_.m_46747_(p_155917_);
++               p_155919_.m_7651_();
++               if (p_155916_.m_8055_(p_155917_).m_60713_(Blocks.f_50110_)) {
++                  BlockState blockstate = Block.m_49931_(p_155919_.f_60334_, p_155916_, p_155917_);
++                  if (blockstate.m_60795_()) {
++                     p_155916_.m_7731_(p_155917_, p_155919_.f_60334_, 84);
++                     Block.m_49902_(p_155919_.f_60334_, blockstate, p_155916_, p_155917_, 3);
++                  } else {
++                     if (blockstate.m_61138_(BlockStateProperties.f_61362_) && blockstate.m_61143_(BlockStateProperties.f_61362_)) {
++                        blockstate = blockstate.m_61124_(BlockStateProperties.f_61362_, Boolean.valueOf(false));
++                     }
++
++                     p_155916_.m_7731_(p_155917_, blockstate, 67);
++                     p_155916_.m_46586_(p_155917_, blockstate.m_60734_(), p_155917_);
++                  }
++               }
++
++            }
+          } else {
+-            p_155916_.m_46747_(p_155917_);
+-            p_155919_.m_7651_();
+-            if (p_155916_.m_8055_(p_155917_).m_60713_(Blocks.f_50110_)) {
+-               BlockState blockstate = Block.m_49931_(p_155919_.f_60334_, p_155916_, p_155917_);
+-               if (blockstate.m_60795_()) {
+-                  p_155916_.m_7731_(p_155917_, p_155919_.f_60334_, 84);
+-                  Block.m_49902_(p_155919_.f_60334_, blockstate, p_155916_, p_155917_, 3);
+-               } else {
+-                  if (blockstate.m_61138_(BlockStateProperties.f_61362_) && blockstate.m_61143_(BlockStateProperties.f_61362_)) {
+-                     blockstate = blockstate.m_61124_(BlockStateProperties.f_61362_, Boolean.valueOf(false));
+-                  }
+-
+-                  p_155916_.m_7731_(p_155917_, blockstate, 67);
+-                  p_155916_.m_46586_(p_155917_, blockstate.m_60734_(), p_155917_);
+-               }
++            float f = p_155919_.f_60339_ + 0.5F;
++            m_155910_(p_155916_, p_155917_, f, p_155919_);
++            m_155931_(p_155916_, p_155917_, f, p_155919_);
++            p_155919_.f_60339_ = f;
++            if (p_155919_.f_60339_ >= 1.0F) {
++               p_155919_.f_60339_ = 1.0F;
+             }
+ 
+          }
+-      } else {
+-         float f = p_155919_.f_60339_ + 0.5F;
+-         m_155910_(p_155916_, p_155917_, f, p_155919_);
+-         m_155931_(p_155916_, p_155917_, f, p_155919_);
+-         p_155919_.f_60339_ = f;
+-         if (p_155919_.f_60339_ >= 1.0F) {
+-            p_155919_.f_60339_ = 1.0F;
+-         }
+-
+       }
+    }
+ 

@@ -1,0 +1,24 @@
+--- a/net/minecraft/world/level/chunk/PalettedContainer.java
++++ b/net/minecraft/world/level/chunk/PalettedContainer.java
+@@ -24,6 +_,7 @@
+ import net.minecraft.util.ZeroBitStorage;
+ 
+ public class PalettedContainer<T> implements PaletteResize<T> {
++   // TODO: forceBits-parametered setBits function. -C
+    private static final int f_188031_ = 0;
+    private final PaletteResize<T> f_63070_ = (p_63139_, p_63140_) -> {
+       return 0;
+@@ -34,11 +_,11 @@
+    private final ThreadingDetector f_199441_ = new ThreadingDetector("PalettedContainer");
+ 
+    public void m_63084_() {
+-      this.f_199441_.m_199416_();
++      //this.threadingDetector.checkAndLock();
+    }
+ 
+    public void m_63120_() {
+-      this.f_199441_.m_199422_();
++      //this.threadingDetector.checkAndUnlock();
+    }
+ 
+    public static <T> Codec<PalettedContainer<T>> m_188054_(IdMap<T> p_188055_, Codec<T> p_188056_, PalettedContainer.Strategy p_188057_, T p_188058_) {

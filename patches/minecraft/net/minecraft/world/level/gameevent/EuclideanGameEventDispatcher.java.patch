@@ -1,0 +1,11 @@
+--- a/net/minecraft/world/level/gameevent/EuclideanGameEventDispatcher.java
++++ b/net/minecraft/world/level/gameevent/EuclideanGameEventDispatcher.java
+@@ -10,7 +_,7 @@
+ import net.minecraft.world.level.Level;
+ 
+ public class EuclideanGameEventDispatcher implements GameEventDispatcher {
+-   private final List<GameEventListener> f_157750_ = Lists.newArrayList();
++   private final List<GameEventListener> f_157750_ = Lists.newCopyOnWriteArrayList();
+    private final Level f_157751_;
+ 
+    public EuclideanGameEventDispatcher(Level p_157753_) {

@@ -1,0 +1,34 @@
+--- a/net/minecraft/server/players/BanListEntry.java
++++ b/net/minecraft/server/players/BanListEntry.java
+@@ -25,7 +_,7 @@
+    }
+ 
+    protected BanListEntry(T p_10950_, JsonObject p_10951_) {
+-      super(p_10950_);
++      super(checkExpiry(p_10950_, p_10951_)); // CraftBukkit
+ 
+       Date date;
+       try {
+@@ -47,6 +_,22 @@
+       this.f_10946_ = date1;
+       this.f_10947_ = p_10951_.has("reason") ? p_10951_.get("reason").getAsString() : "Banned by an operator.";
+    }
++
++   // CraftBukkit start
++   private static <T> T checkExpiry(T object, JsonObject jsonobject) {
++      Date expires = null;
++      try {
++         expires = jsonobject.has("expires") ? f_10943_.parse(jsonobject.get("expires").getAsString()) : null;
++      } catch (ParseException ex) {
++         // Guess we don't have a date
++      }
++      if (expires == null || expires.after(new Date())) {
++         return object;
++      } else {
++         return null;
++      }
++   }
++   // CraftBukkit end
+ 
+    public Date m_143954_() {
+       return this.f_10944_;

@@ -1,0 +1,192 @@
+--- a/net/minecraft/server/level/ChunkHolder.java
++++ b/net/minecraft/server/level/ChunkHolder.java
+@@ -21,6 +_,7 @@
+ import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
+ import net.minecraft.network.protocol.game.ClientboundLightUpdatePacket;
+ import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
++import net.minecraft.server.MinecraftServer;
+ import net.minecraft.util.DebugBuffer;
+ import net.minecraft.util.Mth;
+ import net.minecraft.world.level.ChunkPos;
+@@ -54,19 +_,21 @@
+    private CompletableFuture<ChunkAccess> f_140005_ = CompletableFuture.completedFuture((ChunkAccess)null);
+    @Nullable
+    private final DebugBuffer<ChunkHolder.ChunkSaveDebug> f_142984_ = null;
+-   private int f_140006_;
++   public int f_140006_;
+    private int f_140007_;
+    private int f_140008_;
+    final ChunkPos f_140009_;
+    private boolean f_140010_;
+    private final ShortSet[] f_140011_;
++   private final Object changedBlockPosLock = new Object();
+    private final BitSet f_140012_ = new BitSet();
+    private final BitSet f_140013_ = new BitSet();
+    private final LevelLightEngine f_140014_;
+    private final ChunkHolder.LevelChangeListener f_140015_;
+-   private final ChunkHolder.PlayerProvider f_140016_;
++   public final ChunkHolder.PlayerProvider f_140016_;
+    private boolean f_140017_;
+    private boolean f_140018_;
++   LevelChunk currentlyLoading; // Forge: Used to bypass future chain when loading chunks.
+    private CompletableFuture<Void> f_142981_ = CompletableFuture.completedFuture((Void)null);
+ 
+    public ChunkHolder(ChunkPos p_142986_, int p_142987_, LevelHeightAccessor p_142988_, LevelLightEngine p_142989_, ChunkHolder.LevelChangeListener p_142990_, ChunkHolder.PlayerProvider p_142991_) {
+@@ -82,6 +_,20 @@
+       this.f_140011_ = new ShortSet[p_142988_.m_151559_()];
+    }
+ 
++   // CraftBukkit start
++   public LevelChunk getFullChunkNow() {
++      // Note: We use the oldTicketLevel for isLoaded checks.
++      if (!m_140083_(this.f_140006_).m_140114_(ChunkHolder.FullChunkStatus.BORDER)) return null;
++      return this.getFullChunkNowUnchecked();
++   }
++
++   public LevelChunk getFullChunkNowUnchecked() {
++      CompletableFuture<Either<ChunkAccess, ChunkHolder.ChunkLoadingFailure>> statusFuture = this.m_140047_(ChunkStatus.f_62326_);
++      Either<ChunkAccess, ChunkHolder.ChunkLoadingFailure> either = (Either<ChunkAccess, ChunkLoadingFailure>) statusFuture.getNow(null);
++      return (either == null) ? null : (LevelChunk) either.left().orElse(null);
++   }
++   // CraftBukkit end
++
+    public CompletableFuture<Either<ChunkAccess, ChunkHolder.ChunkLoadingFailure>> m_140047_(ChunkStatus p_140048_) {
+       CompletableFuture<Either<ChunkAccess, ChunkHolder.ChunkLoadingFailure>> completablefuture = this.f_140001_.get(p_140048_.m_62445_());
+       return completablefuture == null ? f_139996_ : completablefuture;
+@@ -154,12 +_,15 @@
+       LevelChunk levelchunk = this.m_140085_();
+       if (levelchunk != null) {
+          int i = this.f_142983_.m_151564_(p_140057_.m_123342_());
+-         if (this.f_140011_[i] == null) {
+-            this.f_140010_ = true;
+-            this.f_140011_[i] = new ShortOpenHashSet();
+-         }
++         synchronized (this.changedBlockPosLock){
++            if (i < 0 || i >= this.f_140011_.length) return; // CraftBukkit - SPIGOT-6086, SPIGOT-6296
++            if (this.f_140011_[i] == null) {
++               this.f_140010_ = true;
++               this.f_140011_[i] = new ShortOpenHashSet();
++            }
+ 
+-         this.f_140011_[i].add(SectionPos.m_123218_(p_140057_));
++            this.f_140011_[i].add(SectionPos.m_123218_(p_140057_));
++         }
+       }
+    }
+ 
+@@ -189,8 +_,10 @@
+          Level level = p_140055_.m_62953_();
+          int i = 0;
+ 
+-         for(int j = 0; j < this.f_140011_.length; ++j) {
+-            i += this.f_140011_[j] != null ? this.f_140011_[j].size() : 0;
++         synchronized (this.changedBlockPosLock){
++            for (ShortSet shorts : this.f_140011_) {
++               i += shorts != null ? shorts.size() : 0;
++            }
+          }
+ 
+          this.f_140018_ |= i >= 64;
+@@ -200,26 +_,28 @@
+             this.f_140012_.clear();
+          }
+ 
+-         for(int l = 0; l < this.f_140011_.length; ++l) {
+-            ShortSet shortset = this.f_140011_[l];
+-            if (shortset != null) {
+-               int k = this.f_142983_.m_151568_(l);
+-               SectionPos sectionpos = SectionPos.m_123196_(p_140055_.m_7697_(), k);
+-               if (shortset.size() == 1) {
+-                  BlockPos blockpos = sectionpos.m_123245_(shortset.iterator().nextShort());
+-                  BlockState blockstate = level.m_8055_(blockpos);
+-                  this.m_140063_(new ClientboundBlockUpdatePacket(blockpos, blockstate), false);
+-                  this.m_140032_(level, blockpos, blockstate);
+-               } else {
+-                  LevelChunkSection levelchunksection = p_140055_.m_183278_(l);
+-                  ClientboundSectionBlocksUpdatePacket clientboundsectionblocksupdatepacket = new ClientboundSectionBlocksUpdatePacket(sectionpos, shortset, levelchunksection, this.f_140018_);
+-                  this.m_140063_(clientboundsectionblocksupdatepacket, false);
+-                  clientboundsectionblocksupdatepacket.m_132992_((p_140078_, p_140079_) -> {
+-                     this.m_140032_(level, p_140078_, p_140079_);
+-                  });
+-               }
++         synchronized (this.changedBlockPosLock){
++            for(int l = 0; l < this.f_140011_.length; ++l) {
++               ShortSet shortset = this.f_140011_[l];
++               if (shortset != null) {
++                  int k = this.f_142983_.m_151568_(l);
++                  SectionPos sectionpos = SectionPos.m_123196_(p_140055_.m_7697_(), k);
++                  if (shortset.size() == 1) {
++                     BlockPos blockpos = sectionpos.m_123245_(shortset.iterator().nextShort());
++                     BlockState blockstate = level.m_8055_(blockpos);
++                     this.m_140063_(new ClientboundBlockUpdatePacket(blockpos, blockstate), false);
++                     this.m_140032_(level, blockpos, blockstate);
++                  } else {
++                     LevelChunkSection levelchunksection = p_140055_.m_183278_(l);
++                     ClientboundSectionBlocksUpdatePacket clientboundsectionblocksupdatepacket = new ClientboundSectionBlocksUpdatePacket(sectionpos, shortset, levelchunksection, this.f_140018_);
++                     this.m_140063_(clientboundsectionblocksupdatepacket, false);
++                     clientboundsectionblocksupdatepacket.m_132992_((p_140078_, p_140079_) -> {
++                        this.m_140032_(level, p_140078_, p_140079_);
++                     });
++                  }
+ 
+-               this.f_140011_[l] = null;
++                  this.f_140011_[l] = null;
++               }
+             }
+          }
+ 
+@@ -350,6 +_,29 @@
+       boolean flag1 = this.f_140007_ <= ChunkMap.f_140127_;
+       ChunkHolder.FullChunkStatus chunkholder$fullchunkstatus = m_140083_(this.f_140006_);
+       ChunkHolder.FullChunkStatus chunkholder$fullchunkstatus1 = m_140083_(this.f_140007_);
++      // CraftBukkit start
++      // ChunkUnloadEvent: Called before the chunk is unloaded: isChunkLoaded is still true and chunk can still be modified by plugins.
++      if (chunkholder$fullchunkstatus.m_140114_(ChunkHolder.FullChunkStatus.BORDER) && !chunkholder$fullchunkstatus1.m_140114_(ChunkHolder.FullChunkStatus.BORDER)) {
++         this.m_140047_(ChunkStatus.f_62326_).thenAccept((either) -> {
++            LevelChunk chunk = (LevelChunk) either.left().orElse(null);
++            if (chunk != null) {
++               p_143004_.callbackExecutor.execute(() -> {
++                  // Minecraft will apply the chunks tick lists to the world once the chunk got loaded, and then store the tick
++                  // lists again inside the chunk once the chunk becomes inaccessible and set the chunk's needsSaving flag.
++                  // These actions may however happen deferred, so we manually set the needsSaving flag already here.
++                  chunk.m_8092_(true);
++                  chunk.unloadCallback();
++               });
++            }
++         }).exceptionally((throwable) -> {
++            // ensure exceptions are printed, by default this is not the case
++            MinecraftServer.f_129750_.error("Failed to schedule unload callback for chunk " + ChunkHolder.this.f_140009_, throwable);
++            return null;
++         });
++         // Run callback right away if the future was already done
++         p_143004_.callbackExecutor.run();
++      }
++      // CraftBukkit end
+       if (flag) {
+          Either<ChunkAccess, ChunkHolder.ChunkLoadingFailure> either = Either.right(new ChunkHolder.ChunkLoadingFailure() {
+             public String toString() {
+@@ -415,6 +_,24 @@
+ 
+       this.f_140015_.m_6250_(this.f_140009_, this::m_140094_, this.f_140007_, this::m_140086_);
+       this.f_140006_ = this.f_140007_;
++      // CraftBukkit start
++      // ChunkLoadEvent: Called after the chunk is loaded: isChunkLoaded returns true and chunk is ready to be modified by plugins.
++      if (!chunkholder$fullchunkstatus.m_140114_(ChunkHolder.FullChunkStatus.BORDER) && chunkholder$fullchunkstatus1.m_140114_(ChunkHolder.FullChunkStatus.BORDER)) {
++         this.m_140047_(ChunkStatus.f_62326_).thenAccept((either) -> {
++            LevelChunk chunk = (LevelChunk)either.left().orElse(null);
++            if (chunk != null) {
++               p_143004_.callbackExecutor.execute(() -> {
++                  chunk.loadCallback();
++               });
++            }
++         }).exceptionally((throwable) -> {
++            // ensure exceptions are printed, by default this is not the case
++            return null;
++         });
++         // Run callback right away if the future was already done
++         p_143004_.callbackExecutor.run();
++      }
++      // CraftBukkit end
+    }
+ 
+    public static ChunkStatus m_140074_(int p_140075_) {

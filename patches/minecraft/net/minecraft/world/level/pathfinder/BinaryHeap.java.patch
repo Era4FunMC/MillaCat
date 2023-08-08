@@ -1,0 +1,80 @@
+--- a/net/minecraft/world/level/pathfinder/BinaryHeap.java
++++ b/net/minecraft/world/level/pathfinder/BinaryHeap.java
+@@ -4,10 +_,8 @@
+    private Node[] f_77078_ = new Node[128];
+    private int f_77079_;
+ 
+-   public Node m_77084_(Node p_77085_) {
+-      if (p_77085_.f_77274_ >= 0) {
+-         throw new IllegalStateException("OW KNOWS!");
+-      } else {
++   public synchronized Node m_77084_(Node p_77085_) {
++      if (p_77085_.f_77274_ < 0) {
+          if (this.f_77079_ == this.f_77078_.length) {
+             Node[] anode = new Node[this.f_77079_ << 1];
+             System.arraycopy(this.f_77078_, 0, anode, 0, this.f_77079_);
+@@ -17,19 +_,19 @@
+          this.f_77078_[this.f_77079_] = p_77085_;
+          p_77085_.f_77274_ = this.f_77079_;
+          this.m_77082_(this.f_77079_++);
+-         return p_77085_;
+       }
++      return p_77085_;
+    }
+ 
+-   public void m_77081_() {
++   public synchronized void m_77081_() {
+       this.f_77079_ = 0;
+    }
+ 
+-   public Node m_164680_() {
++   public synchronized Node m_164680_() {
+       return this.f_77078_[0];
+    }
+ 
+-   public Node m_77091_() {
++   public synchronized Node m_77091_() {
+       Node node = this.f_77078_[0];
+       this.f_77078_[0] = this.f_77078_[--this.f_77079_];
+       this.f_77078_[this.f_77079_] = null;
+@@ -41,7 +_,7 @@
+       return node;
+    }
+ 
+-   public void m_164681_(Node p_164682_) {
++   public synchronized void m_164681_(Node p_164682_) {
+       this.f_77078_[p_164682_.f_77274_] = this.f_77078_[--this.f_77079_];
+       this.f_77078_[this.f_77079_] = null;
+       if (this.f_77079_ > p_164682_.f_77274_) {
+@@ -55,7 +_,7 @@
+       p_164682_.f_77274_ = -1;
+    }
+ 
+-   public void m_77086_(Node p_77087_, float p_77088_) {
++   public synchronized void m_77086_(Node p_77087_, float p_77088_) {
+       float f = p_77087_.f_77277_;
+       p_77087_.f_77277_ = p_77088_;
+       if (p_77088_ < f) {
+@@ -66,7 +_,7 @@
+ 
+    }
+ 
+-   public int m_164683_() {
++   public synchronized int m_164683_() {
+       return this.f_77079_;
+    }
+ 
+@@ -135,11 +_,11 @@
+       node.f_77274_ = p_77090_;
+    }
+ 
+-   public boolean m_77092_() {
++   public synchronized boolean m_77092_() {
+       return this.f_77079_ == 0;
+    }
+ 
+-   public Node[] m_164684_() {
++   public synchronized Node[] m_164684_() {
+       Node[] anode = new Node[this.m_164683_()];
+       System.arraycopy(this.f_77078_, 0, anode, 0, this.m_164683_());
+       return anode;

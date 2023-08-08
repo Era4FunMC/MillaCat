@@ -1,0 +1,29 @@
+--- a/net/minecraft/world/level/levelgen/LegacyRandomSource.java
++++ b/net/minecraft/world/level/levelgen/LegacyRandomSource.java
+@@ -25,7 +_,7 @@
+       return new LegacyRandomSource.LegacyPositionalRandomFactory(this.nextLong());
+    }
+ 
+-   public void setSeed(long p_188585_) {
++   public synchronized void setSeed(long p_188585_) {
+       if (!this.f_188575_.compareAndSet(this.f_188575_.get(), (p_188585_ ^ 25214903917L) & 281474976710655L)) {
+          throw ThreadingDetector.m_199417_("LegacyRandomSource", (Thread)null);
+       } else {
+@@ -33,7 +_,7 @@
+       }
+    }
+ 
+-   public int m_183145_(int p_188581_) {
++   public synchronized int m_183145_(int p_188581_) {
+       long i = this.f_188575_.get();
+       long j = i * 25214903917L + 11L & 281474976710655L;
+       if (!this.f_188575_.compareAndSet(i, j)) {
+@@ -43,7 +_,7 @@
+       }
+    }
+ 
+-   public double nextGaussian() {
++   public synchronized double nextGaussian() {
+       return this.f_188576_.m_188603_();
+    }
+ 

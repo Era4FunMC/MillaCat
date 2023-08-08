@@ -1,0 +1,11 @@
+--- a/net/minecraft/util/ThreadingDetector.java
++++ b/net/minecraft/util/ThreadingDetector.java
+@@ -17,7 +_,7 @@
+ public class ThreadingDetector {
+    private static final Logger f_199407_ = LogUtils.getLogger();
+    private final String f_199408_;
+-   private final Semaphore f_199409_ = new Semaphore(1);
++   private final Semaphore f_199409_ = new Semaphore(255);
+    private final Lock f_199410_ = new ReentrantLock();
+    @Nullable
+    private volatile Thread f_199411_;

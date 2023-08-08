@@ -1,0 +1,74 @@
+--- a/net/minecraft/world/ticks/LevelChunkTicks.java
++++ b/net/minecraft/world/ticks/LevelChunkTicks.java
+@@ -38,17 +_,17 @@
+ 
+    }
+ 
+-   public void m_193181_(@Nullable BiConsumer<LevelChunkTicks<T>, ScheduledTick<T>> p_193182_) {
++   public synchronized void m_193181_(@Nullable BiConsumer<LevelChunkTicks<T>, ScheduledTick<T>> p_193182_) {
+       this.f_193166_ = p_193182_;
+    }
+ 
+    @Nullable
+-   public ScheduledTick<T> m_193189_() {
++   public synchronized ScheduledTick<T> m_193189_() {
+       return this.f_193163_.peek();
+    }
+ 
+    @Nullable
+-   public ScheduledTick<T> m_193195_() {
++   public synchronized ScheduledTick<T> m_193195_() {
+       ScheduledTick<T> scheduledtick = this.f_193163_.poll();
+       if (scheduledtick != null) {
+          this.f_193165_.remove(scheduledtick);
+@@ -57,7 +_,7 @@
+       return scheduledtick;
+    }
+ 
+-   public void m_183393_(ScheduledTick<T> p_193177_) {
++   public synchronized void m_183393_(ScheduledTick<T> p_193177_) {
+       if (this.f_193165_.add(p_193177_)) {
+          this.m_193193_(p_193177_);
+       }
+@@ -72,11 +_,11 @@
+ 
+    }
+ 
+-   public boolean m_183582_(BlockPos p_193179_, T p_193180_) {
++   public synchronized boolean m_183582_(BlockPos p_193179_, T p_193180_) {
+       return this.f_193165_.contains(ScheduledTick.m_193397_(p_193180_, p_193179_));
+    }
+ 
+-   public void m_193183_(Predicate<ScheduledTick<T>> p_193184_) {
++   public synchronized void m_193183_(Predicate<ScheduledTick<T>> p_193184_) {
+       Iterator<ScheduledTick<T>> iterator = this.f_193163_.iterator();
+ 
+       while(iterator.hasNext()) {
+@@ -89,15 +_,15 @@
+ 
+    }
+ 
+-   public Stream<ScheduledTick<T>> m_193196_() {
++   public synchronized Stream<ScheduledTick<T>> m_193196_() {
+       return this.f_193163_.stream();
+    }
+ 
+-   public int m_183574_() {
++   public synchronized int m_183574_() {
+       return this.f_193163_.size() + (this.f_193164_ != null ? this.f_193164_.size() : 0);
+    }
+ 
+-   public ListTag m_183237_(long p_193174_, Function<T, String> p_193175_) {
++   public synchronized ListTag m_183237_(long p_193174_, Function<T, String> p_193175_) {
+       ListTag listtag = new ListTag();
+       if (this.f_193164_ != null) {
+          for(SavedTick<T> savedtick : this.f_193164_) {
+@@ -112,7 +_,7 @@
+       return listtag;
+    }
+ 
+-   public void m_193171_(long p_193172_) {
++   public synchronized void m_193171_(long p_193172_) {
+       if (this.f_193164_ != null) {
+          int i = -this.f_193164_.size();
+ 

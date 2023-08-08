@@ -1,0 +1,65 @@
+--- a/net/minecraft/world/entity/ai/sensing/NearestLivingEntitySensor.java
++++ b/net/minecraft/world/entity/ai/sensing/NearestLivingEntitySensor.java
+@@ -4,6 +_,12 @@
+ import java.util.Comparator;
+ import java.util.List;
+ import java.util.Set;
++import java.util.concurrent.atomic.AtomicBoolean;
++import java.util.stream.Collectors;
++
++import it.unimi.dsi.fastutil.objects.ObjectArrayList;
++import it.unimi.dsi.fastutil.objects.ObjectLists;
++import me.earthme.millacat.utils.EntityPositionCache;
+ import net.minecraft.server.level.ServerLevel;
+ import net.minecraft.world.entity.LivingEntity;
+ import net.minecraft.world.entity.ai.Brain;
+@@ -12,17 +_,39 @@
+ import net.minecraft.world.phys.AABB;
+ 
+ public class NearestLivingEntitySensor extends Sensor<LivingEntity> {
++   private final List<EntityPositionCache> entitiesCache = ObjectLists.synchronize(new ObjectArrayList<>());
++   private final AtomicBoolean calling = new AtomicBoolean(false);
++
++   @Override
+    protected void m_5578_(ServerLevel p_26710_, LivingEntity p_26711_) {
+-      AABB aabb = p_26711_.m_142469_().m_82377_(16.0D, 16.0D, 16.0D);
+-      List<LivingEntity> list = p_26710_.m_6443_(LivingEntity.class, aabb, (p_26717_) -> {
+-         return p_26717_ != p_26711_ && p_26717_.m_6084_();
+-      });
+-      list.sort(Comparator.comparingDouble(p_26711_::m_20280_));
+-      Brain<?> brain = p_26711_.m_6274_();
+-      brain.m_21879_(MemoryModuleType.f_148204_, list);
+-      brain.m_21879_(MemoryModuleType.f_148205_, new NearestVisibleLivingEntities(p_26711_, list));
+-   }
+-
++      if (!this.calling.get()){
++         this.calling.set(true);
++         try {
++            AABB aABB = p_26711_.m_142469_().m_82377_(this.radiusXZ(), this.radiusY(), this.radiusXZ());
++            this.entitiesCache.clear();
++            this.entitiesCache.addAll(p_26710_.m_6443_(LivingEntity.class, aABB, (e) -> e != p_26711_ && e.m_6084_()).stream().map(EntityPositionCache::new).collect(Collectors.toList()));
++            final EntityPositionCache compareCache = new EntityPositionCache(p_26711_);
++            this.entitiesCache.sort(Comparator.comparingDouble(compareCache::distanceToSqr));
++
++            Brain<?> brain = p_26711_.m_6274_();
++            final List<LivingEntity> list = this.entitiesCache.stream().map(EntityPositionCache::getCurrentEntity).map(v -> (LivingEntity)v).collect(Collectors.toList());
++            brain.m_21879_(MemoryModuleType.f_148204_,list);
++            brain.m_21879_(MemoryModuleType.f_148205_, new NearestVisibleLivingEntities(p_26711_, list));
++         }finally {
++            this.calling.set(false);
++         }
++      }
++   }
++
++   protected int radiusXZ() {
++      return 16;
++   }
++
++   protected int radiusY() {
++      return 16;
++   }
++
++   @Override
+    public Set<MemoryModuleType<?>> m_7163_() {
+       return ImmutableSet.of(MemoryModuleType.f_148204_, MemoryModuleType.f_148205_);
+    }

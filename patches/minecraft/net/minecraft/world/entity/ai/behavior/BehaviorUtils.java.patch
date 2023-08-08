@@ -1,0 +1,16 @@
+--- a/net/minecraft/world/entity/ai/behavior/BehaviorUtils.java
++++ b/net/minecraft/world/entity/ai/behavior/BehaviorUtils.java
+@@ -88,6 +_,13 @@
+       vec3 = vec3.m_82541_().m_82490_((double)0.3F);
+       itementity.m_20256_(vec3);
+       itementity.m_32060_();
++      // CraftBukkit start
++      org.bukkit.event.entity.EntityDropItemEvent event = new org.bukkit.event.entity.EntityDropItemEvent(p_22614_.getBukkitEntity(), (org.bukkit.entity.Item) itementity.getBukkitEntity());
++      itementity.f_19853_.getCraftServer().getPluginManager().callEvent(event);
++      if (event.isCancelled()) {
++         return;
++      }
++      // CraftBukkit end
+       p_22614_.f_19853_.m_7967_(itementity);
+    }
+ 

@@ -1,0 +1,16 @@
+--- a/net/minecraft/server/level/PlayerMap.java
++++ b/net/minecraft/server/level/PlayerMap.java
+@@ -1,11 +_,12 @@
+ package net.minecraft.server.level;
+ 
+ import it.unimi.dsi.fastutil.objects.Object2BooleanMap;
++import it.unimi.dsi.fastutil.objects.Object2BooleanMaps;
+ import it.unimi.dsi.fastutil.objects.Object2BooleanOpenHashMap;
+ import java.util.Set;
+ 
+ public final class PlayerMap {
+-   private final Object2BooleanMap<ServerPlayer> f_8241_ = new Object2BooleanOpenHashMap<>();
++   private final Object2BooleanMap<ServerPlayer> f_8241_ = Object2BooleanMaps.synchronize(new Object2BooleanOpenHashMap<>());
+ 
+    public Set<ServerPlayer> m_183926_(long p_183927_) {
+       return this.f_8241_.keySet();

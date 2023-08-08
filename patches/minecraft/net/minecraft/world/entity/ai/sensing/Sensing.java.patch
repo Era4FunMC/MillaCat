@@ -1,0 +1,72 @@
+--- a/net/minecraft/world/entity/ai/sensing/Sensing.java
++++ b/net/minecraft/world/entity/ai/sensing/Sensing.java
+@@ -5,34 +_,58 @@
+ import net.minecraft.world.entity.Entity;
+ import net.minecraft.world.entity.Mob;
+ 
++import java.util.concurrent.locks.ReadWriteLock;
++import java.util.concurrent.locks.ReentrantReadWriteLock;
++
+ public class Sensing {
+    private final Mob f_26784_;
+    private final IntSet f_26785_ = new IntOpenHashSet();
+    private final IntSet f_26786_ = new IntOpenHashSet();
+ 
++   private final ReadWriteLock accessLock = new ReentrantReadWriteLock();
++
+    public Sensing(Mob p_26788_) {
+       this.f_26784_ = p_26788_;
+    }
+ 
+    public void m_26789_() {
+-      this.f_26785_.clear();
+-      this.f_26786_.clear();
++      this.accessLock.writeLock().lock();
++      try {
++         this.f_26785_.clear();
++         this.f_26786_.clear();
++      }finally {
++         this.accessLock.writeLock().unlock();
++      }
+    }
+ 
+    public boolean m_148306_(Entity p_148307_) {
+       int i = p_148307_.m_142049_();
+-      if (this.f_26785_.contains(i)) {
+-         return true;
+-      } else if (this.f_26786_.contains(i)) {
++      boolean flag2;
++      boolean flag1 = false;
++      this.accessLock.readLock().lock();
++      try {
++         flag2 = this.f_26785_.contains(i);
++         if (!flag2){
++            flag1 = this.f_26786_.contains(i);
++         }
++      }finally {
++         this.accessLock.readLock().unlock();
++      }
++
++      if (flag1) {
+          return false;
+       } else {
+-         this.f_26784_.f_19853_.m_46473_().m_6180_("hasLineOfSight");
+          boolean flag = this.f_26784_.m_142582_(p_148307_);
+-         this.f_26784_.f_19853_.m_46473_().m_7238_();
+-         if (flag) {
+-            this.f_26785_.add(i);
+-         } else {
+-            this.f_26786_.add(i);
++
++         this.accessLock.writeLock().lock();
++         try {
++            if (flag) {
++               this.f_26785_.add(i);
++            } else {
++               this.f_26786_.add(i);
++            }
++         }finally {
++            this.accessLock.writeLock().unlock();
+          }
+ 
+          return flag;

@@ -1,0 +1,151 @@
+--- a/net/minecraft/world/level/entity/EntitySectionStorage.java
++++ b/net/minecraft/world/level/entity/EntitySectionStorage.java
+@@ -1,16 +_,12 @@
+ package net.minecraft.world.level.entity;
+ 
+-import it.unimi.dsi.fastutil.longs.Long2ObjectFunction;
+-import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+-import it.unimi.dsi.fastutil.longs.LongAVLTreeSet;
+-import it.unimi.dsi.fastutil.longs.LongIterator;
+-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+-import it.unimi.dsi.fastutil.longs.LongSet;
+-import it.unimi.dsi.fastutil.longs.LongSortedSet;
++import it.unimi.dsi.fastutil.longs.*;
++
+ import java.util.Objects;
+ import java.util.Spliterators;
+ import java.util.PrimitiveIterator.OfLong;
++import java.util.concurrent.locks.ReadWriteLock;
++import java.util.concurrent.locks.ReentrantReadWriteLock;
+ import java.util.function.Consumer;
+ import java.util.stream.LongStream;
+ import java.util.stream.Stream;
+@@ -26,6 +_,7 @@
+    private final Long2ObjectFunction<Visibility> f_156851_;
+    private final Long2ObjectMap<EntitySection<T>> f_156852_ = new Long2ObjectOpenHashMap<>();
+    private final LongSortedSet f_156853_ = new LongAVLTreeSet();
++   private final ReadWriteLock accessLock = new ReentrantReadWriteLock();
+ 
+    public EntitySectionStorage(Class<T> p_156855_, Long2ObjectFunction<Visibility> p_156856_) {
+       this.f_156850_ = p_156855_;
+@@ -43,18 +_,23 @@
+       for(int k1 = i; k1 <= l; ++k1) {
+          long l1 = SectionPos.m_123209_(k1, 0, 0);
+          long i2 = SectionPos.m_123209_(k1, -1, -1);
+-         LongIterator longiterator = this.f_156853_.subSet(l1, i2 + 1L).iterator();
++         this.accessLock.readLock().lock();
++         try {
++            LongIterator longiterator = this.f_156853_.subSet(l1, i2 + 1L).iterator();
+ 
+-         while(longiterator.hasNext()) {
+-            long j2 = longiterator.nextLong();
+-            int k2 = SectionPos.m_123225_(j2);
+-            int l2 = SectionPos.m_123230_(j2);
+-            if (k2 >= j && k2 <= i1 && l2 >= k && l2 <= j1) {
+-               EntitySection<T> entitysection = this.f_156852_.get(j2);
+-               if (entitysection != null && !entitysection.m_156833_() && entitysection.m_156848_().m_157694_()) {
+-                  p_188364_.accept(entitysection);
++            while(longiterator.hasNext()) {
++               long j2 = longiterator.nextLong();
++               int k2 = SectionPos.m_123225_(j2);
++               int l2 = SectionPos.m_123230_(j2);
++               if (k2 >= j && k2 <= i1 && l2 >= k && l2 <= j1) {
++                  EntitySection<T> entitysection = this.f_156852_.get(j2);
++                  if (entitysection != null && !entitysection.m_156833_() && entitysection.m_156848_().m_157694_()) {
++                     p_188364_.accept(entitysection);
++                  }
+                }
+             }
++         }finally {
++            this.accessLock.readLock().unlock();
+          }
+       }
+ 
+@@ -73,9 +_,14 @@
+    }
+ 
+    private LongSortedSet m_156858_(int p_156859_, int p_156860_) {
+-      long i = SectionPos.m_123209_(p_156859_, 0, p_156860_);
+-      long j = SectionPos.m_123209_(p_156859_, -1, p_156860_);
+-      return this.f_156853_.subSet(i, j + 1L);
++      this.accessLock.readLock().lock();
++      try {
++         long i = SectionPos.m_123209_(p_156859_, 0, p_156860_);
++         long j = SectionPos.m_123209_(p_156859_, -1, p_156860_);
++         return new LongLinkedOpenHashSet(this.f_156853_.subSet(i, j + 1L));
++      }finally {
++         this.accessLock.readLock().unlock();
++      }
+    }
+ 
+    public Stream<EntitySection<T>> m_156888_(long p_156889_) {
+@@ -87,12 +_,22 @@
+    }
+ 
+    public EntitySection<T> m_156893_(long p_156894_) {
+-      return this.f_156852_.computeIfAbsent(p_156894_, this::m_156901_);
++      this.accessLock.writeLock().lock();
++      try {
++         return this.f_156852_.computeIfAbsent(p_156894_, this::m_156901_);
++      }finally {
++         this.accessLock.writeLock().unlock();
++      }
+    }
+ 
+    @Nullable
+    public EntitySection<T> m_156895_(long p_156896_) {
+-      return this.f_156852_.get(p_156896_);
++      this.accessLock.readLock().lock();
++      try {
++         return this.f_156852_.get(p_156896_);
++      }finally {
++         this.accessLock.readLock().unlock();
++      }
+    }
+ 
+    private EntitySection<T> m_156901_(long p_156902_) {
+@@ -104,9 +_,14 @@
+ 
+    public LongSet m_156857_() {
+       LongSet longset = new LongOpenHashSet();
+-      this.f_156852_.keySet().forEach((java.util.function.LongConsumer)(p_156886_) -> {
+-         longset.add(m_156899_(p_156886_));
+-      });
++      this.accessLock.readLock().lock();
++      try {
++         this.f_156852_.keySet().forEach((java.util.function.LongConsumer)(p_156886_) -> {
++            longset.add(m_156899_(p_156886_));
++         });
++      }finally {
++         this.accessLock.readLock().unlock();
++      }
+       return longset;
+    }
+ 
+@@ -123,12 +_,22 @@
+    }
+ 
+    public void m_156897_(long p_156898_) {
+-      this.f_156852_.remove(p_156898_);
+-      this.f_156853_.remove(p_156898_);
++      this.accessLock.writeLock().lock();
++      try {
++         this.f_156852_.remove(p_156898_);
++         this.f_156853_.remove(p_156898_);
++      }finally {
++         this.accessLock.writeLock().unlock();
++      }
+    }
+ 
+    @VisibleForDebug
+    public int m_156887_() {
+-      return this.f_156853_.size();
++      this.accessLock.readLock().lock();
++      try {
++         return this.f_156853_.size();
++      }finally {
++         this.accessLock.readLock().unlock();
++      }
+    }
+ }

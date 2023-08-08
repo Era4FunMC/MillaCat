@@ -1,0 +1,11 @@
+--- a/net/minecraft/world/level/pathfinder/PathFinder.java
++++ b/net/minecraft/world/level/pathfinder/PathFinder.java
+@@ -31,7 +_,7 @@
+    }
+ 
+    @Nullable
+-   public Path m_77427_(PathNavigationRegion p_77428_, Mob p_77429_, Set<BlockPos> p_77430_, float p_77431_, int p_77432_, float p_77433_) {
++   public synchronized Path m_77427_(PathNavigationRegion p_77428_, Mob p_77429_, Set<BlockPos> p_77430_, float p_77431_, int p_77432_, float p_77433_) {
+       this.f_77423_.m_77081_();
+       this.f_77422_.m_6028_(p_77428_, p_77429_);
+       Node node = this.f_77422_.m_7171_();

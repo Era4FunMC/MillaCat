@@ -1,0 +1,279 @@
+--- a/net/minecraft/util/SortedArraySet.java
++++ b/net/minecraft/util/SortedArraySet.java
+@@ -6,6 +_,8 @@
+ import java.util.Comparator;
+ import java.util.Iterator;
+ import java.util.NoSuchElementException;
++import java.util.concurrent.locks.ReadWriteLock;
++import java.util.concurrent.locks.ReentrantReadWriteLock;
+ import javax.annotation.Nullable;
+ 
+ public class SortedArraySet<T> extends AbstractSet<T> {
+@@ -13,6 +_,7 @@
+    private final Comparator<T> f_14240_;
+    T[] f_14241_;
+    int f_14242_;
++   private final ReadWriteLock accessLock = new ReentrantReadWriteLock();
+ 
+    private SortedArraySet(int p_14244_, Comparator<T> p_14245_) {
+       this.f_14240_ = p_14245_;
+@@ -52,13 +_,18 @@
+    }
+ 
+    public boolean add(T p_14261_) {
+-      int i = this.m_14269_(p_14261_);
+-      if (i >= 0) {
+-         return false;
+-      } else {
+-         int j = m_14263_(i);
+-         this.m_14255_(p_14261_, j);
+-         return true;
++      this.accessLock.writeLock().lock();
++      try {
++         int i = this.m_14269_(p_14261_);
++         if (i >= 0) {
++            return false;
++         } else {
++            int j = m_14263_(i);
++            this.m_14255_(p_14261_, j);
++            return true;
++         }
++      }finally {
++         this.accessLock.writeLock().unlock();
+       }
+    }
+ 
+@@ -100,42 +_,72 @@
+    }
+ 
+    public T m_14253_(T p_14254_) {
+-      int i = this.m_14269_(p_14254_);
+-      if (i >= 0) {
+-         return this.m_14276_(i);
+-      } else {
+-         this.m_14255_(p_14254_, m_14263_(i));
+-         return p_14254_;
++      this.accessLock.writeLock().lock();
++      try {
++         int i = this.m_14269_(p_14254_);
++         if (i >= 0) {
++            return this.m_14276_(i);
++         } else {
++            this.m_14255_(p_14254_, m_14263_(i));
++            return p_14254_;
++         }
++      }finally {
++         this.accessLock.writeLock().unlock();
+       }
+    }
+ 
+    public boolean remove(Object p_14282_) {
+-      int i = this.m_14269_((T)p_14282_);
+-      if (i >= 0) {
+-         this.m_14274_(i);
+-         return true;
+-      } else {
+-         return false;
++      this.accessLock.writeLock().lock();
++      try {
++         int i = this.m_14269_((T)p_14282_);
++         if (i >= 0) {
++            this.m_14274_(i);
++            return true;
++         } else {
++            return false;
++         }
++      }finally {
++         this.accessLock.writeLock().unlock();
+       }
+    }
+ 
+    @Nullable
+    public T m_144981_(T p_144982_) {
+-      int i = this.m_14269_(p_144982_);
+-      return (T)(i >= 0 ? this.m_14276_(i) : null);
++      this.accessLock.readLock().lock();
++      try {
++         int i = this.m_14269_(p_144982_);
++         return (T)(i >= 0 ? this.m_14276_(i) : null);
++      }finally {
++         this.accessLock.readLock().unlock();
++      }
+    }
+ 
+    public T m_14262_() {
+-      return this.m_14276_(0);
++      this.accessLock.readLock().lock();
++      try {
++         return this.m_14276_(0);
++      }finally {
++         this.accessLock.readLock().unlock();
++      }
+    }
+ 
+    public T m_144983_() {
+-      return this.m_14276_(this.f_14242_ - 1);
++      this.accessLock.readLock().lock();
++      try {
++         return this.m_14276_(this.f_14242_ - 1);
++      }finally {
++         this.accessLock.readLock().unlock();
++      }
+    }
+ 
+    public boolean contains(Object p_14273_) {
+-      int i = this.m_14269_((T)p_14273_);
+-      return i >= 0;
++      this.accessLock.readLock().lock();
++      try {
++         int i = this.m_14269_((T)p_14273_);
++         return i >= 0;
++      }finally {
++         this.accessLock.readLock().unlock();
++      }
+    }
+ 
+    public Iterator<T> iterator() {
+@@ -143,43 +_,68 @@
+    }
+ 
+    public int size() {
+-      return this.f_14242_;
++      this.accessLock.readLock().lock();
++      try {
++         return this.f_14242_;
++      }finally {
++         this.accessLock.readLock().unlock();
++      }
+    }
+ 
+    public Object[] toArray() {
+-      return this.f_14241_.clone();
++      this.accessLock.readLock().lock();
++      try {
++         return this.f_14241_.clone();
++      }finally {
++         this.accessLock.readLock().unlock();
++      }
+    }
+ 
+    public <U> U[] toArray(U[] p_14286_) {
+-      if (p_14286_.length < this.f_14242_) {
+-         return (U[])Arrays.copyOf(this.f_14241_, this.f_14242_, p_14286_.getClass());
+-      } else {
+-         System.arraycopy(this.f_14241_, 0, p_14286_, 0, this.f_14242_);
+-         if (p_14286_.length > this.f_14242_) {
+-            p_14286_[this.f_14242_] = null;
+-         }
++      this.accessLock.readLock().lock();
++      try {
++         if (p_14286_.length < this.f_14242_) {
++            return (U[])Arrays.copyOf(this.f_14241_, this.f_14242_, p_14286_.getClass());
++         } else {
++            System.arraycopy(this.f_14241_, 0, p_14286_, 0, this.f_14242_);
++            if (p_14286_.length > this.f_14242_) {
++               p_14286_[this.f_14242_] = null;
++            }
+ 
+-         return p_14286_;
++            return p_14286_;
++         }
++      }finally {
++         this.accessLock.readLock().unlock();
+       }
+    }
+ 
+    public void clear() {
+-      Arrays.fill(this.f_14241_, 0, this.f_14242_, (Object)null);
+-      this.f_14242_ = 0;
++      this.accessLock.writeLock().lock();
++      try {
++         Arrays.fill(this.f_14241_, 0, this.f_14242_, (Object)null);
++         this.f_14242_ = 0;
++      }finally {
++         this.accessLock.writeLock().unlock();
++      }
+    }
+ 
+    public boolean equals(Object p_14279_) {
+-      if (this == p_14279_) {
+-         return true;
+-      } else {
+-         if (p_14279_ instanceof SortedArraySet) {
+-            SortedArraySet<?> sortedarrayset = (SortedArraySet)p_14279_;
+-            if (this.f_14240_.equals(sortedarrayset.f_14240_)) {
+-               return this.f_14242_ == sortedarrayset.f_14242_ && Arrays.equals(this.f_14241_, sortedarrayset.f_14241_);
++      this.accessLock.readLock().lock();
++      try {
++         if (this == p_14279_) {
++            return true;
++         } else {
++            if (p_14279_ instanceof SortedArraySet) {
++               SortedArraySet<?> sortedarrayset = (SortedArraySet)p_14279_;
++               if (this.f_14240_.equals(sortedarrayset.f_14240_)) {
++                  return this.f_14242_ == sortedarrayset.f_14242_ && Arrays.equals(this.f_14241_, sortedarrayset.f_14241_);
++               }
+             }
+-         }
+ 
+-         return super.equals(p_14279_);
++            return super.equals(p_14279_);
++         }
++      }finally {
++         this.accessLock.readLock().unlock();
+       }
+    }
+ 
+@@ -188,25 +_,40 @@
+       private int f_14289_ = -1;
+ 
+       public boolean hasNext() {
+-         return this.f_14288_ < SortedArraySet.this.f_14242_;
++         SortedArraySet.this.accessLock.readLock().lock();
++         try {
++            return this.f_14288_ < SortedArraySet.this.f_14242_;
++         }finally {
++            SortedArraySet.this.accessLock.readLock().unlock();
++         }
+       }
+ 
+       public T next() {
+-         if (this.f_14288_ >= SortedArraySet.this.f_14242_) {
+-            throw new NoSuchElementException();
+-         } else {
+-            this.f_14289_ = this.f_14288_++;
+-            return SortedArraySet.this.f_14241_[this.f_14289_];
++         SortedArraySet.this.accessLock.readLock().lock();
++         try {
++            if (this.f_14288_ >= SortedArraySet.this.f_14242_) {
++               throw new NoSuchElementException();
++            } else {
++               this.f_14289_ = this.f_14288_++;
++               return SortedArraySet.this.f_14241_[this.f_14289_];
++            }
++         }finally {
++            SortedArraySet.this.accessLock.readLock().unlock();
+          }
+       }
+ 
+       public void remove() {
+-         if (this.f_14289_ == -1) {
+-            throw new IllegalStateException();
+-         } else {
+-            SortedArraySet.this.m_14274_(this.f_14289_);
+-            --this.f_14288_;
+-            this.f_14289_ = -1;
++         SortedArraySet.this.accessLock.writeLock().lock();
++         try {
++            if (this.f_14289_ == -1) {
++               throw new IllegalStateException();
++            } else {
++               SortedArraySet.this.m_14274_(this.f_14289_);
++               --this.f_14288_;
++               this.f_14289_ = -1;
++            }
++         }finally {
++            SortedArraySet.this.accessLock.writeLock().unlock();
+          }
+       }
+    }

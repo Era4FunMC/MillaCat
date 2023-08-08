@@ -1,0 +1,474 @@
+--- a/net/minecraft/world/ticks/LevelTicks.java
++++ b/net/minecraft/world/ticks/LevelTicks.java
+@@ -5,7 +_,6 @@
+ import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
+ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+-import it.unimi.dsi.fastutil.longs.Long2LongMap.Entry;
+ import it.unimi.dsi.fastutil.objects.ObjectIterator;
+ import it.unimi.dsi.fastutil.objects.ObjectOpenCustomHashSet;
+ import java.util.ArrayDeque;
+@@ -16,6 +_,8 @@
+ import java.util.PriorityQueue;
+ import java.util.Queue;
+ import java.util.Set;
++import java.util.concurrent.locks.ReadWriteLock;
++import java.util.concurrent.locks.ReentrantReadWriteLock;
+ import java.util.function.BiConsumer;
+ import java.util.function.LongPredicate;
+ import java.util.function.Predicate;
+@@ -29,25 +_,27 @@
+ import net.minecraft.world.level.levelgen.structure.BoundingBox;
+ 
+ public class LevelTicks<T> implements LevelTickAccess<T> {
+-   private static final Comparator<LevelChunkTicks<?>> f_193199_ = (p_193246_, p_193247_) -> {
+-      return ScheduledTick.f_193374_.compare(p_193246_.m_193189_(), p_193247_.m_193189_());
++   private static final Comparator<LevelChunkTicks<?>> f_193199_ = (a, b) -> {
++      return ScheduledTick.f_193374_.compare(a.m_193189_(), b.m_193189_());
+    };
+    private final LongPredicate f_193200_;
+    private final Supplier<ProfilerFiller> f_193201_;
+    private final Long2ObjectMap<LevelChunkTicks<T>> f_193202_ = new Long2ObjectOpenHashMap<>();
+-   private final Long2LongMap f_193203_ = Util.m_137469_(new Long2LongOpenHashMap(), (p_193262_) -> {
+-      p_193262_.defaultReturnValue(Long.MAX_VALUE);
++   private final Long2LongMap f_193203_ = Util.m_137469_(new Long2LongOpenHashMap(), (map) -> {
++      map.defaultReturnValue(Long.MAX_VALUE);
+    });
+    private final Queue<LevelChunkTicks<T>> f_193204_ = new PriorityQueue<>(f_193199_);
+    private final Queue<ScheduledTick<T>> f_193205_ = new ArrayDeque<>();
+    private final List<ScheduledTick<T>> f_193206_ = new ArrayList<>();
+    private final Set<ScheduledTick<?>> f_193207_ = new ObjectOpenCustomHashSet<>(ScheduledTick.f_193375_);
+-   private final BiConsumer<LevelChunkTicks<T>, ScheduledTick<T>> f_193208_ = (p_193249_, p_193250_) -> {
+-      if (p_193250_.equals(p_193249_.m_193189_())) {
+-         this.m_193279_(p_193250_);
++   private final BiConsumer<LevelChunkTicks<T>, ScheduledTick<T>> f_193208_ = (chunkTickScheduler, tick) -> {
++      if (tick.equals(chunkTickScheduler.m_193189_())) {
++         this.m_193279_(tick);
+       }
+ 
+    };
++
++   private final ReadWriteLock accessLock = new ReentrantReadWriteLock();
+ 
+    public LevelTicks(LongPredicate p_193211_, Supplier<ProfilerFiller> p_193212_) {
+       this.f_193200_ = p_193211_;
+@@ -55,75 +_,100 @@
+    }
+ 
+    public void m_193231_(ChunkPos p_193232_, LevelChunkTicks<T> p_193233_) {
+-      long i = p_193232_.m_45588_();
+-      this.f_193202_.put(i, p_193233_);
+-      ScheduledTick<T> scheduledtick = p_193233_.m_193189_();
+-      if (scheduledtick != null) {
+-         this.f_193203_.put(i, scheduledtick.f_193378_());
+-      }
++      this.accessLock.writeLock().lock();
++      try {
++         long l = p_193232_.m_45588_();
++         this.f_193202_.put(l, p_193233_);
++         ScheduledTick<T> scheduledTick = p_193233_.m_193189_();
++         if (scheduledTick != null) {
++            this.f_193203_.put(l, scheduledTick.f_193378_());
++         }
+ 
+-      p_193233_.m_193181_(this.f_193208_);
++         p_193233_.m_193181_(this.f_193208_);
++      }finally {
++         this.accessLock.writeLock().unlock();
++      }
+    }
+ 
+    public void m_193229_(ChunkPos p_193230_) {
+-      long i = p_193230_.m_45588_();
+-      LevelChunkTicks<T> levelchunkticks = this.f_193202_.remove(i);
+-      this.f_193203_.remove(i);
+-      if (levelchunkticks != null) {
+-         levelchunkticks.m_193181_((BiConsumer<LevelChunkTicks<T>, ScheduledTick<T>>)null);
++      this.accessLock.writeLock().lock();
++      try {
++         long l = p_193230_.m_45588_();
++         LevelChunkTicks<T> levelChunkTicks = this.f_193202_.remove(l);
++         this.f_193203_.remove(l);
++         if (levelChunkTicks != null) {
++            levelChunkTicks.m_193181_((BiConsumer<LevelChunkTicks<T>, ScheduledTick<T>>)null);
++         }
++      }finally {
++         this.accessLock.writeLock().unlock();
+       }
+-
+    }
+ 
++   @Override
+    public void m_183393_(ScheduledTick<T> p_193252_) {
+-      long i = ChunkPos.m_151388_(p_193252_.f_193377_());
+-      LevelChunkTicks<T> levelchunkticks = this.f_193202_.get(i);
+-      if (levelchunkticks == null) {
+-         Util.m_137570_(new IllegalStateException("Trying to schedule tick in not loaded position " + p_193252_.f_193377_()));
+-      } else {
+-         levelchunkticks.m_183393_(p_193252_);
++      this.accessLock.readLock().lock();
++      try {
++         long l = ChunkPos.m_151388_(p_193252_.f_193377_());
++         LevelChunkTicks<T> levelChunkTicks = this.f_193202_.get(l);
++         if (levelChunkTicks == null) {
++            Util.m_137570_(new IllegalStateException("Trying to schedule tick in not loaded position " + p_193252_.f_193377_()));
++         } else {
++            levelChunkTicks.m_183393_(p_193252_);
++         }
++      }finally {
++         this.accessLock.readLock().unlock();
+       }
+    }
+ 
+    public void m_193225_(long p_193226_, int p_193227_, BiConsumer<BlockPos, T> p_193228_) {
+-      ProfilerFiller profilerfiller = this.f_193201_.get();
+-      profilerfiller.m_6180_("collect");
+-      this.m_193221_(p_193226_, p_193227_, profilerfiller);
+-      profilerfiller.m_6182_("run");
+-      profilerfiller.m_183275_("ticksToRun", this.f_193205_.size());
++      //ProfilerFiller profilerFiller = this.profiler.get(); // Purpur
++      //profilerFiller.push("collect"); // Purpur
++      this.m_193221_(p_193226_, p_193227_, null); // Purpur
++      //profilerFiller.popPush("run"); // Purpur
++      //profilerFiller.incrementCounter("ticksToRun", this.toRunThisTick.size()); // Purpur
+       this.m_193272_(p_193228_);
+-      profilerfiller.m_6182_("cleanup");
++      //profilerFiller.popPush("cleanup"); // Purpur
+       this.m_193284_();
+-      profilerfiller.m_7238_();
++      //profilerFiller.pop(); // Purpur
+    }
+ 
+    private void m_193221_(long p_193222_, int p_193223_, ProfilerFiller p_193224_) {
+-      this.m_193216_(p_193222_);
+-      p_193224_.m_183275_("containersToTick", this.f_193204_.size());
+-      this.m_193218_(p_193222_, p_193223_);
+-      this.m_193278_();
++      this.accessLock.writeLock().lock();
++      try {
++         this.m_193216_(p_193222_);
++         //profiler.incrementCounter("containersToTick", this.containersToTick.size()); // Purpur
++         this.m_193218_(p_193222_, p_193223_);
++      }finally {
++         this.accessLock.writeLock().unlock();
++      }
++      this.accessLock.readLock().lock();
++      try {
++         this.m_193278_();
++      }finally {
++         this.accessLock.readLock().unlock();
++      }
+    }
+ 
+    private void m_193216_(long p_193217_) {
+-      ObjectIterator<Entry> objectiterator = Long2LongMaps.fastIterator(this.f_193203_);
++      ObjectIterator<Long2LongMap.Entry> objectIterator = Long2LongMaps.fastIterator(this.f_193203_);
+ 
+-      while(objectiterator.hasNext()) {
+-         Entry entry = objectiterator.next();
+-         long i = entry.getLongKey();
+-         long j = entry.getLongValue();
+-         if (j <= p_193217_) {
+-            LevelChunkTicks<T> levelchunkticks = this.f_193202_.get(i);
+-            if (levelchunkticks == null) {
+-               objectiterator.remove();
++      while(objectIterator.hasNext()) {
++         Long2LongMap.Entry entry = objectIterator.next();
++         long l = entry.getLongKey();
++         long m = entry.getLongValue();
++         if (m <= p_193217_) {
++            LevelChunkTicks<T> levelChunkTicks = this.f_193202_.get(l);
++            if (levelChunkTicks == null) {
++               objectIterator.remove();
+             } else {
+-               ScheduledTick<T> scheduledtick = levelchunkticks.m_193189_();
+-               if (scheduledtick == null) {
+-                  objectiterator.remove();
+-               } else if (scheduledtick.f_193378_() > p_193217_) {
+-                  entry.setValue(scheduledtick.f_193378_());
+-               } else if (this.f_193200_.test(i)) {
+-                  objectiterator.remove();
+-                  this.f_193204_.add(levelchunkticks);
++               ScheduledTick<T> scheduledTick = levelChunkTicks.m_193189_();
++               if (scheduledTick == null) {
++                  objectIterator.remove();
++               } else if (scheduledTick.f_193378_() > p_193217_) {
++                  entry.setValue(scheduledTick.f_193378_());
++               } else if (this.f_193200_.test(l)) {
++                  objectIterator.remove();
++                  this.f_193204_.add(levelChunkTicks);
+                }
+             }
+          }
+@@ -132,17 +_,17 @@
+    }
+ 
+    private void m_193218_(long p_193219_, int p_193220_) {
+-      LevelChunkTicks<T> levelchunkticks;
+-      while(this.m_193214_(p_193220_) && (levelchunkticks = this.f_193204_.poll()) != null) {
+-         ScheduledTick<T> scheduledtick = levelchunkticks.m_193195_();
+-         this.m_193285_(scheduledtick);
+-         this.m_193267_(this.f_193204_, levelchunkticks, p_193219_, p_193220_);
+-         ScheduledTick<T> scheduledtick1 = levelchunkticks.m_193189_();
+-         if (scheduledtick1 != null) {
+-            if (scheduledtick1.f_193378_() <= p_193219_ && this.m_193214_(p_193220_)) {
+-               this.f_193204_.add(levelchunkticks);
++      LevelChunkTicks<T> levelChunkTicks;
++      while(this.m_193214_(p_193220_) && (levelChunkTicks = this.f_193204_.poll()) != null) {
++         ScheduledTick<T> scheduledTick = levelChunkTicks.m_193195_();
++         this.m_193285_(scheduledTick);
++         this.m_193267_(this.f_193204_, levelChunkTicks, p_193219_, p_193220_);
++         ScheduledTick<T> scheduledTick2 = levelChunkTicks.m_193189_();
++         if (scheduledTick2 != null) {
++            if (scheduledTick2.f_193378_() <= p_193219_ && this.m_193214_(p_193220_)) {
++               this.f_193204_.add(levelChunkTicks);
+             } else {
+-               this.m_193279_(scheduledtick1);
++               this.m_193279_(scheduledTick2);
+             }
+          }
+       }
+@@ -150,8 +_,8 @@
+    }
+ 
+    private void m_193278_() {
+-      for(LevelChunkTicks<T> levelchunkticks : this.f_193204_) {
+-         this.m_193279_(levelchunkticks.m_193189_());
++      for(LevelChunkTicks<T> levelChunkTicks : this.f_193204_) {
++         this.m_193279_(levelChunkTicks.m_193189_());
+       }
+ 
+    }
+@@ -162,17 +_,17 @@
+ 
+    private void m_193267_(Queue<LevelChunkTicks<T>> p_193268_, LevelChunkTicks<T> p_193269_, long p_193270_, int p_193271_) {
+       if (this.m_193214_(p_193271_)) {
+-         LevelChunkTicks<T> levelchunkticks = p_193268_.peek();
+-         ScheduledTick<T> scheduledtick = levelchunkticks != null ? levelchunkticks.m_193189_() : null;
++         LevelChunkTicks<T> levelChunkTicks = p_193268_.peek();
++         ScheduledTick<T> scheduledTick = levelChunkTicks != null ? levelChunkTicks.m_193189_() : null;
+ 
+          while(this.m_193214_(p_193271_)) {
+-            ScheduledTick<T> scheduledtick1 = p_193269_.m_193189_();
+-            if (scheduledtick1 == null || scheduledtick1.f_193378_() > p_193270_ || scheduledtick != null && ScheduledTick.f_193374_.compare(scheduledtick1, scheduledtick) > 0) {
++            ScheduledTick<T> scheduledTick2 = p_193269_.m_193189_();
++            if (scheduledTick2 == null || scheduledTick2.f_193378_() > p_193270_ || scheduledTick != null && ScheduledTick.f_193374_.compare(scheduledTick2, scheduledTick) > 0) {
+                break;
+             }
+ 
+             p_193269_.m_193195_();
+-            this.m_193285_(scheduledtick1);
++            this.m_193285_(scheduledTick2);
+          }
+ 
+       }
+@@ -187,40 +_,71 @@
+    }
+ 
+    private void m_193272_(BiConsumer<BlockPos, T> p_193273_) {
+-      while(!this.f_193205_.isEmpty()) {
+-         ScheduledTick<T> scheduledtick = this.f_193205_.poll();
+-         if (!this.f_193207_.isEmpty()) {
+-            this.f_193207_.remove(scheduledtick);
++      final List<ScheduledTick<T>> toRun = new ArrayList<>();
++
++      this.accessLock.writeLock().lock();
++      try {
++         while(!this.f_193205_.isEmpty()) {
++            ScheduledTick<T> scheduledTick = this.f_193205_.poll();
++            if (!this.f_193207_.isEmpty()) {
++               this.f_193207_.remove(scheduledTick);
++            }
++
++            toRun.add(scheduledTick);
++            this.f_193206_.add(scheduledTick);
+          }
+-
+-         this.f_193206_.add(scheduledtick);
+-         p_193273_.accept(scheduledtick.f_193377_(), scheduledtick.f_193376_());
+-      }
+-
++      }finally {
++         this.accessLock.writeLock().unlock();
++      }
++
++      for (ScheduledTick<T> scheduledTick : toRun){
++         p_193273_.accept(scheduledTick.f_193377_(), scheduledTick.f_193376_());
++      }
+    }
+ 
+    private void m_193284_() {
+-      this.f_193205_.clear();
+-      this.f_193204_.clear();
+-      this.f_193206_.clear();
+-      this.f_193207_.clear();
++      this.accessLock.writeLock().lock();
++      try {
++         this.f_193205_.clear();
++         this.f_193204_.clear();
++         this.f_193206_.clear();
++         this.f_193207_.clear();
++      }finally {
++         this.accessLock.writeLock().unlock();
++      }
+    }
+ 
++   @Override
+    public boolean m_183582_(BlockPos p_193254_, T p_193255_) {
+-      LevelChunkTicks<T> levelchunkticks = this.f_193202_.get(ChunkPos.m_151388_(p_193254_));
+-      return levelchunkticks != null && levelchunkticks.m_183582_(p_193254_, p_193255_);
++      this.accessLock.readLock().lock();
++      try {
++         LevelChunkTicks<T> levelChunkTicks = this.f_193202_.get(ChunkPos.m_151388_(p_193254_));
++         return levelChunkTicks != null && levelChunkTicks.m_183582_(p_193254_, p_193255_);
++      }finally {
++         this.accessLock.readLock().unlock();
++      }
+    }
+ 
++   @Override
+    public boolean m_183588_(BlockPos p_193282_, T p_193283_) {
+       this.m_193287_();
+-      return this.f_193207_.contains(ScheduledTick.m_193397_(p_193283_, p_193282_));
++      this.accessLock.readLock().lock();
++      try {
++         return this.f_193207_.contains(ScheduledTick.m_193397_(p_193283_, p_193282_));
++      }finally {
++         this.accessLock.readLock().unlock();
++      }
+    }
+ 
+    private void m_193287_() {
+-      if (this.f_193207_.isEmpty() && !this.f_193205_.isEmpty()) {
+-         this.f_193207_.addAll(this.f_193205_);
++      this.accessLock.writeLock().lock();
++      try {
++         if (this.f_193207_.isEmpty() && !this.f_193205_.isEmpty()) {
++            this.f_193207_.addAll(this.f_193205_);
++         }
++      }finally {
++         this.accessLock.writeLock().unlock();
+       }
+-
+    }
+ 
+    private void m_193236_(BoundingBox p_193237_, LevelTicks.PosAndContainerConsumer<T> p_193238_) {
+@@ -229,12 +_,12 @@
+       int k = SectionPos.m_175552_((double)p_193237_.m_162399_());
+       int l = SectionPos.m_175552_((double)p_193237_.m_162401_());
+ 
+-      for(int i1 = i; i1 <= k; ++i1) {
+-         for(int j1 = j; j1 <= l; ++j1) {
+-            long k1 = ChunkPos.m_45589_(i1, j1);
+-            LevelChunkTicks<T> levelchunkticks = this.f_193202_.get(k1);
+-            if (levelchunkticks != null) {
+-               p_193238_.m_193288_(k1, levelchunkticks);
++      for(int m = i; m <= k; ++m) {
++         for(int n = j; n <= l; ++n) {
++            long o = ChunkPos.m_45589_(m, n);
++            LevelChunkTicks<T> levelChunkTicks = this.f_193202_.get(o);
++            if (levelChunkTicks != null) {
++               p_193238_.m_193288_(o, levelChunkTicks);
+             }
+          }
+       }
+@@ -242,46 +_,66 @@
+    }
+ 
+    public void m_193234_(BoundingBox p_193235_) {
+-      Predicate<ScheduledTick<T>> predicate = (p_193241_) -> {
+-         return p_193235_.m_71051_(p_193241_.f_193377_());
++      Predicate<ScheduledTick<T>> predicate = (tick) -> {
++         return p_193235_.m_71051_(tick.f_193377_());
+       };
+-      this.m_193236_(p_193235_, (p_193276_, p_193277_) -> {
+-         ScheduledTick<T> scheduledtick = p_193277_.m_193189_();
+-         p_193277_.m_193183_(predicate);
+-         ScheduledTick<T> scheduledtick1 = p_193277_.m_193189_();
+-         if (scheduledtick1 != scheduledtick) {
+-            if (scheduledtick1 != null) {
+-               this.m_193279_(scheduledtick1);
+-            } else {
+-               this.f_193203_.remove(p_193276_);
++      this.accessLock.writeLock().lock();
++      try {
++         this.m_193236_(p_193235_, (chunkPos, chunkTickScheduler) -> {
++            ScheduledTick<T> scheduledTick = chunkTickScheduler.m_193189_();
++            chunkTickScheduler.m_193183_(predicate);
++            ScheduledTick<T> scheduledTick2 = chunkTickScheduler.m_193189_();
++            if (scheduledTick2 != scheduledTick) {
++               if (scheduledTick2 != null) {
++                  this.m_193279_(scheduledTick2);
++               } else {
++                  this.f_193203_.remove(chunkPos);
++               }
+             }
+-         }
+ 
+-      });
+-      this.f_193206_.removeIf(predicate);
+-      this.f_193205_.removeIf(predicate);
++         });
++         this.f_193206_.removeIf(predicate);
++         this.f_193205_.removeIf(predicate);
++      }finally {
++         this.accessLock.writeLock().unlock();
++      }
+    }
+ 
+    public void m_193242_(BoundingBox p_193243_, Vec3i p_193244_) {
+-      List<ScheduledTick<T>> list = new ArrayList<>();
+-      Predicate<ScheduledTick<T>> predicate = (p_200922_) -> {
+-         return p_193243_.m_71051_(p_200922_.f_193377_());
+-      };
+-      this.f_193206_.stream().filter(predicate).forEach(list::add);
+-      this.f_193205_.stream().filter(predicate).forEach(list::add);
+-      this.m_193236_(p_193243_, (p_200931_, p_200932_) -> {
+-         p_200932_.m_193196_().filter(predicate).forEach(list::add);
+-      });
+-      LongSummaryStatistics longsummarystatistics = list.stream().mapToLong(ScheduledTick::f_193380_).summaryStatistics();
+-      long i = longsummarystatistics.getMin();
+-      long j = longsummarystatistics.getMax();
+-      list.forEach((p_193260_) -> {
+-         this.m_183393_(new ScheduledTick<T>(p_193260_.f_193376_(), p_193260_.f_193377_().m_141952_(p_193244_), p_193260_.f_193378_(), p_193260_.f_193379_(), p_193260_.f_193380_() - i + j + 1L));
+-      });
+-   }
+-
++      this.copyAreaFrom(this, p_193243_, p_193244_);
++   }
++
++   public void copyAreaFrom(LevelTicks<T> scheduler, BoundingBox box, Vec3i offset) {
++      this.accessLock.readLock().lock();
++      try {
++         List<ScheduledTick<T>> list = new ArrayList<>();
++         Predicate<ScheduledTick<T>> predicate = (tick) -> {
++            return box.m_71051_(tick.f_193377_());
++         };
++         scheduler.f_193206_.stream().filter(predicate).forEach(list::add);
++         scheduler.f_193205_.stream().filter(predicate).forEach(list::add);
++         scheduler.m_193236_(box, (chunkPos, chunkTickScheduler) -> {
++            chunkTickScheduler.m_193196_().filter(predicate).forEach(list::add);
++         });
++         LongSummaryStatistics longSummaryStatistics = list.stream().mapToLong(ScheduledTick::f_193380_).summaryStatistics();
++         long l = longSummaryStatistics.getMin();
++         long m = longSummaryStatistics.getMax();
++         list.forEach((tick) -> {
++            this.m_183393_(new ScheduledTick<>(tick.f_193376_(), tick.f_193377_().m_141952_(offset), tick.f_193378_(), tick.f_193379_(), tick.f_193380_() - l + m + 1L));
++         });
++      }finally {
++         this.accessLock.readLock().unlock();
++      }
++   }
++
++   @Override
+    public int m_183574_() {
+-      return this.f_193202_.values().stream().mapToInt(TickAccess::m_183574_).sum();
++      this.accessLock.readLock().lock();
++      try {
++         return this.f_193202_.values().stream().mapToInt(TickAccess::m_183574_).sum();
++      }finally {
++         this.accessLock.readLock().unlock();
++      }
+    }
+ 
+    @FunctionalInterface
