@@ -1,5 +1,14 @@
 --- a/net/minecraft/world/level/chunk/LevelChunkSection.java
 +++ b/net/minecraft/world/level/chunk/LevelChunkSection.java
+@@ -23,7 +_,7 @@
+    private short f_62969_;
+    private short f_62970_;
+    private short f_62971_;
+-   private final PalettedContainer<BlockState> f_62972_;
++   public final PalettedContainer<BlockState> f_62972_;
+    private final PalettedContainer<Holder<Biome>> f_187995_;
+ 
+    public LevelChunkSection(int p_187997_, PalettedContainer<BlockState> p_187998_, PalettedContainer<Holder<Biome>> p_187999_) {
 @@ -39,6 +_,12 @@
        this.f_187995_ = new PalettedContainer<>(p_188002_.m_206115_(), p_188002_.m_206081_(Biomes.f_48202_), PalettedContainer.Strategy.f_188138_);
     }
@@ -12,4 +21,36 @@
 +
     public static int m_156458_(int p_156459_) {
        return p_156459_ << 4;
+    }
+@@ -52,11 +_,11 @@
+    }
+ 
+    public void m_62981_() {
+-      this.f_62972_.m_63084_();
++      //this.states.acquire();
+    }
+ 
+    public void m_63006_() {
+-      this.f_62972_.m_63120_();
++      //this.states.release();
+    }
+ 
+    public BlockState m_62986_(int p_62987_, int p_62988_, int p_62989_, BlockState p_62990_) {
+@@ -184,7 +_,7 @@
+ 
+    public void m_188003_(BiomeResolver p_188004_, Climate.Sampler p_188005_, int p_188006_, int p_188007_) {
+       PalettedContainer<Holder<Biome>> palettedcontainer = this.m_188013_();
+-      palettedcontainer.m_63084_();
++      palettedcontainer.accessingLock.writeLock().lock();
+ 
+       try {
+          int i = QuartPos.m_175400_(this.m_63017_());
+@@ -198,7 +_,7 @@
+             }
+          }
+       } finally {
+-         palettedcontainer.m_63120_();
++         palettedcontainer.accessingLock.writeLock().unlock();
+       }
+ 
     }

@@ -1,0 +1,20 @@
+--- a/net/minecraft/world/level/chunk/BulkSectionAccess.java
++++ b/net/minecraft/world/level/chunk/BulkSectionAccess.java
+@@ -29,7 +_,7 @@
+             this.f_156100_ = this.f_156099_.computeIfAbsent(j, (p_156109_) -> {
+                ChunkAccess chunkaccess = this.f_156098_.m_6325_(SectionPos.m_123171_(p_156105_.m_123341_()), SectionPos.m_123171_(p_156105_.m_123343_()));
+                LevelChunkSection levelchunksection = chunkaccess.m_183278_(i);
+-               levelchunksection.m_62981_();
++               //levelchunksection.acquire();
+                return levelchunksection;
+             });
+             this.f_156101_ = j;
+@@ -55,7 +_,7 @@
+ 
+    public void close() {
+       for(LevelChunkSection levelchunksection : this.f_156099_.values()) {
+-         levelchunksection.m_63006_();
++         //levelchunksection.release();
+       }
+ 
+    }

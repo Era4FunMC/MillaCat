@@ -12,3 +12,24 @@
     private final NoiseRouter f_209104_;
     protected final Climate.Sampler f_158382_;
     private final SurfaceSystem f_188605_;
+@@ -271,16 +_,16 @@
+ 
+          for(int k1 = i1; k1 >= j1; --k1) {
+             LevelChunkSection levelchunksection = p_188705_.m_183278_(k1);
+-            levelchunksection.m_62981_();
++            //levelchunksection.states.accessingLock.writeLock().lock();
+             set.add(levelchunksection);
+          }
+ 
+          return CompletableFuture.supplyAsync(Util.m_183946_("wgen_fill_noise", () -> {
+             return this.m_188662_(p_188703_, p_188704_, p_188705_, k, l);
+          }), Util.m_183991_()).whenCompleteAsync((p_209132_, p_209133_) -> {
+-            for(LevelChunkSection levelchunksection1 : set) {
+-               levelchunksection1.m_63006_();
+-            }
++            //for(LevelChunkSection levelchunksection1 : set) {
++               //levelchunksection1.states.accessingLock.writeLock().unlock();
++            //}
+ 
+          }, p_188702_);
+       }

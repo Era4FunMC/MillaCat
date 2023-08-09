@@ -1,5 +1,14 @@
 --- a/net/minecraft/world/level/chunk/PalettedContainer.java
 +++ b/net/minecraft/world/level/chunk/PalettedContainer.java
+@@ -9,6 +_,8 @@
+ import java.util.Arrays;
+ import java.util.List;
+ import java.util.Optional;
++import java.util.concurrent.locks.ReadWriteLock;
++import java.util.concurrent.locks.ReentrantReadWriteLock;
+ import java.util.function.Consumer;
+ import java.util.function.IntUnaryOperator;
+ import java.util.function.Predicate;
 @@ -24,6 +_,7 @@
  import net.minecraft.util.ZeroBitStorage;
  
@@ -8,8 +17,13 @@
     private static final int f_188031_ = 0;
     private final PaletteResize<T> f_63070_ = (p_63139_, p_63140_) -> {
        return 0;
-@@ -34,11 +_,11 @@
-    private final ThreadingDetector f_199441_ = new ThreadingDetector("PalettedContainer");
+@@ -31,14 +_,15 @@
+    private final IdMap<T> f_63071_;
+    private volatile PalettedContainer.Data<T> f_188032_;
+    private final PalettedContainer.Strategy f_188033_;
+-   private final ThreadingDetector f_199441_ = new ThreadingDetector("PalettedContainer");
++   //private final ThreadingDetector threadingDetector = new ThreadingDetector("PalettedContainer"); //Do not use it
++   public final ReadWriteLock accessingLock = new ReentrantReadWriteLock();
  
     public void m_63084_() {
 -      this.f_199441_.m_199416_();
@@ -22,3 +36,132 @@
     }
  
     public static <T> Codec<PalettedContainer<T>> m_188054_(IdMap<T> p_188055_, Codec<T> p_188056_, PalettedContainer.Strategy p_188057_, T p_188058_) {
+@@ -84,13 +_,15 @@
+    }
+ 
+    public T m_63091_(int p_63092_, int p_63093_, int p_63094_, T p_63095_) {
+-      this.m_63084_();
++      //this.acquire();
+ 
++      this.accessingLock.writeLock().lock();
+       Object object;
+       try {
+          object = this.m_63096_(this.f_188033_.m_188145_(p_63092_, p_63093_, p_63094_), p_63095_);
+       } finally {
+-         this.m_63120_();
++         this.accessingLock.writeLock().unlock();
++         //this.release();
+       }
+ 
+       return (T)object;
+@@ -107,14 +_,15 @@
+    }
+ 
+    public void m_156470_(int p_156471_, int p_156472_, int p_156473_, T p_156474_) {
+-      this.m_63084_();
++      //this.acquire();
+ 
++      this.accessingLock.writeLock().lock();
+       try {
+          this.m_63132_(this.f_188033_.m_188145_(p_156471_, p_156472_, p_156473_), p_156474_);
+       } finally {
+-         this.m_63120_();
++         this.accessingLock.writeLock().unlock();
++         //this.release();
+       }
+-
+    }
+ 
+    private void m_63132_(int p_63133_, T p_63134_) {
+@@ -123,7 +_,12 @@
+    }
+ 
+    public T m_63087_(int p_63088_, int p_63089_, int p_63090_) {
+-      return this.m_63085_(this.f_188033_.m_188145_(p_63088_, p_63089_, p_63090_));
++      this.accessingLock.readLock().lock();
++      try {
++         return this.m_63085_(this.f_188033_.m_188145_(p_63088_, p_63089_, p_63090_));
++      }finally {
++         this.accessingLock.readLock().unlock();
++      }
+    }
+ 
+    protected T m_63085_(int p_63086_) {
+@@ -132,17 +_,23 @@
+    }
+ 
+    public void m_196879_(Consumer<T> p_196880_) {
+-      Palette<T> palette = this.f_188032_.f_188102_();
+-      IntSet intset = new IntArraySet();
+-      this.f_188032_.f_188101_.m_13519_(intset::add);
+-      intset.forEach((p_196884_) -> {
+-         p_196880_.accept(palette.m_5795_(p_196884_));
+-      });
++      this.accessingLock.readLock().lock();
++      try {
++         Palette<T> palette = this.f_188032_.f_188102_();
++         IntSet intset = new IntArraySet();
++         this.f_188032_.f_188101_.m_13519_(intset::add);
++         intset.forEach((p_196884_) -> {
++            p_196880_.accept(palette.m_5795_(p_196884_));
++         });
++      }finally {
++         this.accessingLock.readLock().unlock();
++      }
+    }
+ 
+    public void m_63118_(FriendlyByteBuf p_63119_) {
+-      this.m_63084_();
++      //this.acquire();
+ 
++      this.accessingLock.writeLock().lock();
+       try {
+          int i = p_63119_.readByte();
+          PalettedContainer.Data<T> data = this.m_188051_(this.f_188032_, i);
+@@ -150,18 +_,21 @@
+          p_63119_.m_130105_(data.f_188101_.m_13513_());
+          this.f_188032_ = data;
+       } finally {
+-         this.m_63120_();
++         this.accessingLock.writeLock().unlock();
++         //this.release();
+       }
+ 
+    }
+ 
+    public void m_63135_(FriendlyByteBuf p_63136_) {
+-      this.m_63084_();
++      //this.acquire();
+ 
++      this.accessingLock.writeLock().lock();
+       try {
+          this.f_188032_.m_188114_(p_63136_);
+       } finally {
+-         this.m_63120_();
++         this.accessingLock.writeLock().unlock();
++         //this.release();
+       }
+ 
+    }
+@@ -206,9 +_,10 @@
+    }
+ 
+    private PalettedContainer.DiscData<T> m_188064_(IdMap<T> p_188065_, PalettedContainer.Strategy p_188066_) {
+-      this.m_63084_();
++      //this.acquire();
+ 
+       PalettedContainer.DiscData palettedcontainer$discdata;
++      this.accessingLock.writeLock().lock();
+       try {
+          HashMapPalette<T> hashmappalette = new HashMapPalette<>(p_188065_, this.f_188032_.f_188101_.m_144604_(), this.f_63070_);
+          int i = p_188066_.m_188144_();
+@@ -228,7 +_,8 @@
+ 
+          palettedcontainer$discdata = new PalettedContainer.DiscData<>(hashmappalette.m_187917_(), optional);
+       } finally {
+-         this.m_63120_();
++         this.accessingLock.writeLock().unlock();
++         //this.release();
+       }
+ 
+       return palettedcontainer$discdata;
