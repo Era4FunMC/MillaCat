@@ -211,21 +211,21 @@ public class ServerThreadingHooks {
     static {
         worldThreadPool = Executors.newCachedThreadPool(task -> {
             final TickThreadImpl workerThread = new TickThreadImpl(task,"MillaCat World Worker Thread - "+idGenerator.getAndIncrement());
-            workerThread.setContextClassLoader(MinecraftServer.class.getClassLoader());
+            //workerThread.setContextClassLoader(MinecraftServer.class.getClassLoader());
             workerThread.setPriority(7);
             return workerThread;
         });
 
         entityThreadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(),task -> {
             final TickThreadImpl workerThread = new TickThreadImpl(task,"MillaCat Entity Worker Thread - "+idGenerator.getAndIncrement());
-            workerThread.setContextClassLoader(MinecraftServer.class.getClassLoader());
+            //workerThread.setContextClassLoader(MinecraftServer.class.getClassLoader());
             workerThread.setPriority(3);
             return workerThread;
         });
 
         miscThreadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(),task -> {
            final TickThreadImpl workerThread = new TickThreadImpl(task,"MillaCat Misc Worker Thread - "+idGenerator.getAndIncrement());
-           workerThread.setContextClassLoader(MinecraftServer.class.getClassLoader());
+           //workerThread.setContextClassLoader(MinecraftServer.class.getClassLoader());
            workerThread.setPriority(3);
            return workerThread;
         });
@@ -233,7 +233,7 @@ public class ServerThreadingHooks {
         tileEntityThreadPool = new ForkJoinPool(Runtime.getRuntime().availableProcessors(),pool -> {
             final ForkJoinWorkerThread workerThread = new TickForkJoinWorker(pool){};
             workerThread.setName("MillaCat Tile Worker Thread - "+idGenerator.getAndIncrement());
-            workerThread.setContextClassLoader(MinecraftServer.class.getClassLoader());
+            //workerThread.setContextClassLoader(MinecraftServer.class.getClassLoader());
             workerThread.setPriority(3);
             return workerThread;
         },null,true);

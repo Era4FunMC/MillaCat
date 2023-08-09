@@ -15,7 +15,7 @@ public class SplittingTraverseTask<E> extends RecursiveAction {
     public SplittingTraverseTask(@NotNull Iterable<E> iterable, int threads, Consumer<E> action){
         this.spliterator = iterable.spliterator();
         this.action = action;
-        this.threshold = Math.max((int)iterable.spliterator().estimateSize() / threads,2);
+        this.threshold = Math.max((int)iterable.spliterator().estimateSize() / threads,10);
     }
 
     private SplittingTraverseTask(Spliterator<E> spliterator, Consumer<E> action, long t) {
@@ -31,10 +31,11 @@ public class SplittingTraverseTask<E> extends RecursiveAction {
         } else {
             final Spliterator<E> split = this.spliterator.trySplit();
             if (split != null){
-                invokeAll(new SplittingTraverseTask<>(this.spliterator, this.action, this.threshold).fork(),new SplittingTraverseTask<>(split, this.action, this.threshold).fork());
+                new SplittingTraverseTask<>(split, this.action, this.threshold).fork();
+                new SplittingTraverseTask<>(this.spliterator, this.action, this.threshold).compute();
                 return;
             }
-            invokeAll(new SplittingTraverseTask<>(this.spliterator, this.action, this.threshold).fork());
+            new SplittingTraverseTask<>(this.spliterator, this.action, this.threshold).compute();
         }
     }
 
