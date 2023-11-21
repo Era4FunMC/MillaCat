@@ -34,7 +34,7 @@
  import net.minecraft.server.level.progress.ChunkProgressListener;
  import net.minecraft.util.VisibleForDebug;
  import net.minecraft.util.profiling.ProfilerFiller;
-@@ -55,12 +_,10 @@
+@@ -55,12 +_,12 @@
     public final ChunkMap f_8325_;
     private final DimensionDataStorage f_8333_;
     private long f_8334_;
@@ -47,6 +47,8 @@
 -   private final ChunkStatus[] f_8338_ = new ChunkStatus[4];
 -   private final ChunkAccess[] f_8339_ = new ChunkAccess[4];
 +   private final SWMRLong2ObjectHashTable<ChunkAccess> loadedChunks = new SWMRLong2ObjectHashTable<>();
++   private final Lock chunkCacheLock = new ReentrantLock();
++
     @Nullable
     @VisibleForDebug
     private NaturalSpawner.SpawnState f_8340_;
@@ -79,16 +81,26 @@
     @Nullable
     private ChunkHolder m_8364_(long p_8365_) {
        return this.f_8325_.m_140327_(p_8365_);
-@@ -92,96 +_,78 @@
+@@ -92,96 +_,98 @@
        return this.f_8325_.m_140368_();
     }
  
 +   public void onChunkLoad(ChunkAccess chunk){
-+      this.loadedChunks.put(chunk.m_7697_().m_45588_(),chunk);
++      this.chunkCacheLock.lock();
++      try {
++         this.loadedChunks.put(chunk.m_7697_().m_45588_(),chunk);
++      }finally {
++         this.chunkCacheLock.unlock();
++      }
 +   }
 +
 +   public void onChunkUnload(ChunkAccess chunk){
-+      this.loadedChunks.remove(chunk.m_7697_().m_45588_());
++      this.chunkCacheLock.lock();
++      try {
++         this.loadedChunks.remove(chunk.m_7697_().m_45588_());
++      }finally {
++         this.chunkCacheLock.unlock();
++      }
 +   }
 +
     private void m_8366_(long p_8367_, ChunkAccess p_8368_, ChunkStatus p_8369_) {
@@ -96,12 +108,16 @@
 -         this.f_8337_[i] = this.f_8337_[i - 1];
 -         this.f_8338_[i] = this.f_8338_[i - 1];
 -         this.f_8339_[i] = this.f_8339_[i - 1];
--      }
++      this.chunkCacheLock.lock();
++      try {
++         this.loadedChunks.put(p_8368_.m_7697_().m_45588_(),p_8368_);
++      }finally {
++         this.chunkCacheLock.unlock();
+       }
 -
 -      this.f_8337_[0] = p_8367_;
 -      this.f_8338_[0] = p_8369_;
 -      this.f_8339_[0] = p_8368_;
-+      this.loadedChunks.put(p_8368_.m_7697_().m_45588_(),p_8368_);
     }
  
     @Nullable
@@ -203,7 +219,12 @@
 -      Arrays.fill(this.f_8337_, ChunkPos.f_45577_);
 -      Arrays.fill(this.f_8338_, (Object)null);
 -      Arrays.fill(this.f_8339_, (Object)null);
-+      this.loadedChunks.clear();
++      this.chunkCacheLock.lock();
++      try {
++         this.loadedChunks.clear();
++      }finally {
++         this.chunkCacheLock.unlock();
++      }
     }
  
     public CompletableFuture<Either<ChunkAccess, ChunkHolder.ChunkLoadingFailure>> m_8431_(int p_8432_, int p_8433_, ChunkStatus p_8434_, boolean p_8435_) {
