@@ -52,7 +52,7 @@
  
     public LevelTicks(LongPredicate p_193211_, Supplier<ProfilerFiller> p_193212_) {
        this.f_193200_ = p_193211_;
-@@ -55,75 +_,100 @@
+@@ -55,75 +_,95 @@
     }
  
     public void m_193231_(ChunkPos p_193232_, LevelChunkTicks<T> p_193233_) {
@@ -149,14 +149,9 @@
 +         this.m_193216_(p_193222_);
 +         //profiler.incrementCounter("containersToTick", this.containersToTick.size()); // Purpur
 +         this.m_193218_(p_193222_, p_193223_);
-+      }finally {
-+         this.accessLock.writeLock().unlock();
-+      }
-+      this.accessLock.readLock().lock();
-+      try {
 +         this.m_193278_();
 +      }finally {
-+         this.accessLock.readLock().unlock();
++         this.accessLock.writeLock().unlock();
 +      }
     }
  
