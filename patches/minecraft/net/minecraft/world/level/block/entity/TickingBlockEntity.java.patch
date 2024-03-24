@@ -1,0 +1,28 @@
+--- a/net/minecraft/world/level/block/entity/TickingBlockEntity.java
++++ b/net/minecraft/world/level/block/entity/TickingBlockEntity.java
+@@ -1,8 +_,9 @@
+ package net.minecraft.world.level.block.entity;
+ 
++import me.earthme.millacat.utils.Locatable;
+ import net.minecraft.core.BlockPos;
+ 
+-public interface TickingBlockEntity {
++public interface TickingBlockEntity extends Locatable{
+    void m_142224_();
+ 
+    boolean m_142220_();
+@@ -10,4 +_,14 @@
+    BlockPos m_142689_();
+ 
+    String m_142280_();
++
++   @Override
++   default int chunkX() {
++      return this.m_142689_().m_123341_() >> 4;
++   }
++
++   @Override
++   default int chunkZ() {
++      return this.m_142689_().m_123343_() >> 4;
++   }
+ }
