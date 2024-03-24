@@ -1,6 +1,6 @@
 --- a/net/minecraft/server/level/ServerLevel.java
 +++ b/net/minecraft/server/level/ServerLevel.java
-@@ -2,10 +_,12 @@
+@@ -2,30 +_,24 @@
  
  import com.google.common.annotations.VisibleForTesting;
  import com.google.common.collect.Lists;
@@ -13,7 +13,12 @@
  import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
  import it.unimi.dsi.fastutil.longs.LongSet;
  import it.unimi.dsi.fastutil.longs.LongSets;
-@@ -18,14 +_,8 @@
+ import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+-import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
+-import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+ import it.unimi.dsi.fastutil.objects.Object2IntMap.Entry;
+ import java.io.IOException;
  import java.io.Writer;
  import java.nio.file.Files;
  import java.nio.file.Path;
@@ -30,7 +35,7 @@
  import java.util.function.BooleanSupplier;
  import java.util.function.Function;
  import java.util.function.Predicate;
-@@ -33,6 +_,9 @@
+@@ -33,8 +_,10 @@
  import java.util.stream.Stream;
  import javax.annotation.Nonnull;
  import javax.annotation.Nullable;
@@ -38,8 +43,18 @@
 +import me.earthme.millacat.hook.ServerThreadingHooks;
 +import me.earthme.millacat.utils.TickThread;
  import net.minecraft.CrashReport;
- import net.minecraft.Util;
+-import net.minecraft.Util;
  import net.minecraft.core.BlockPos;
+ import net.minecraft.core.Direction;
+ import net.minecraft.core.Holder;
+@@ -87,7 +_,6 @@
+ import net.minecraft.world.entity.animal.Animal;
+ import net.minecraft.world.entity.animal.WaterAnimal;
+ import net.minecraft.world.entity.animal.horse.SkeletonHorse;
+-import net.minecraft.world.entity.boss.EnderDragonPart;
+ import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
+ import net.minecraft.world.entity.npc.Npc;
+ import net.minecraft.world.entity.player.Player;
 @@ -147,1397 +_,1748 @@
  import net.minecraft.world.ticks.LevelTicks;
  import org.slf4j.Logger;
@@ -180,8 +195,8 @@
 +    private final SleepStatus f_143245_;
 +    private int f_8551_;
 +    private final PortalForcer f_8552_;
-+    private final LevelTicks<Block> f_8553_ = new LevelTicks<>(this::m_184110_, this.m_46658_());
-+    private final LevelTicks<Fluid> f_184047_ = new LevelTicks<>(this::m_184110_, this.m_46658_());
++    private final LevelTicks<Block> f_8553_ = new LevelTicks<>(this::m_184110_, this.m_46658_(), this);
++    private final LevelTicks<Fluid> f_184047_ = new LevelTicks<>(this::m_184110_, this.m_46658_(), this);
 +    final Set<Mob> f_143246_ = Sets.newConcurrentHashSet();
 +    volatile boolean f_200893_;
 +    protected final Raids f_8565_;

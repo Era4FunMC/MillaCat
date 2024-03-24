@@ -15,6 +15,7 @@
 +
 +import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
 +import it.unimi.dsi.fastutil.objects.ObjectSets;
++import me.earthme.millacat.utils.SplittedHashSet;
  import net.minecraft.world.entity.Entity;
  
  public class EntityTickList {

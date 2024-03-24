@@ -7,6 +7,7 @@ import me.earthme.millacat.concurrent.thread.TickForkJoinWorker;
 import me.earthme.millacat.concurrent.thread.TickThreadImpl;
 import me.earthme.millacat.utils.Locatable;
 import net.minecraft.Util;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -16,6 +17,8 @@ import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.TickingBlockEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.ticks.LevelTicks;
+import net.minecraft.world.ticks.ScheduledTick;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bukkit.craftbukkit.v1_18_R2.SpigotTimings;
@@ -25,7 +28,9 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
+import java.util.function.BiConsumer;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class ServerThreadingHooks {
@@ -163,6 +168,47 @@ public class ServerThreadingHooks {
 
     public static Map<Long, List<Locatable>> groupByChunk(Collection<? extends Locatable> dataList) {
         return dataList.stream().collect(Collectors.groupingBy(Locatable::getChunkKey, LinkedHashMap::new, Collectors.toList()));
+    }
+
+    public static <T> void postRunScheduledTicks(LevelTicks<T> ticks, BiConsumer<BlockPos, T> action){
+        final List<ScheduledTick<T>> scheduledTicks = new ArrayList<>();
+        final AtomicInteger taskCounter = worldTaskCount.get(ticks.level);
+
+        ticks.accessLock.writeLock().lock();
+        try {
+            while(!ticks.toRunThisTick.isEmpty()) {
+                ScheduledTick<T> scheduledTick = ticks.toRunThisTick.poll();
+                if (!ticks.toRunThisTickSet.isEmpty()) {
+                    ticks.toRunThisTickSet.remove(scheduledTick);
+                }
+
+                scheduledTicks.add(scheduledTick);
+                ticks.alreadyRunThisTick.add(scheduledTick);
+            }
+        }finally {
+            ticks.accessLock.writeLock().unlock();
+        }
+
+        final List<Runnable> toRun = new ArrayList<>();
+
+        for (Map.Entry<Long, List<Locatable>> split : groupByChunk(scheduledTicks).entrySet()){
+            taskCounter.getAndIncrement();
+            toRun.add(() -> {
+                try {
+                    for (Locatable l : split.getValue()){
+                        final ScheduledTick<T> scheduledTick = ((ScheduledTick<T>) l);
+
+                        action.accept(scheduledTick.pos(), scheduledTick.type());
+                    }
+                }finally {
+                    taskCounter.getAndDecrement();
+                }
+            });
+        }
+
+        for (Runnable task : toRun){
+            miscThreadPool.execute(task);
+        }
     }
 
     public static void postEntityTicKTask(ServerLevel level){

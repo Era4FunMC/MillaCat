@@ -8,7 +8,7 @@
  import it.unimi.dsi.fastutil.objects.ObjectIterator;
  import it.unimi.dsi.fastutil.objects.ObjectOpenCustomHashSet;
  import java.util.ArrayDeque;
-@@ -16,6 +_,8 @@
+@@ -16,114 +_,143 @@
  import java.util.PriorityQueue;
  import java.util.Queue;
  import java.util.Set;
@@ -17,7 +17,16 @@
  import java.util.function.BiConsumer;
  import java.util.function.LongPredicate;
  import java.util.function.Predicate;
-@@ -29,25 +_,27 @@
+ import java.util.function.Supplier;
++
++import me.earthme.millacat.hook.ServerThreadingHooks;
+ import net.minecraft.Util;
+ import net.minecraft.core.BlockPos;
+ import net.minecraft.core.SectionPos;
+ import net.minecraft.core.Vec3i;
++import net.minecraft.server.level.ServerLevel;
+ import net.minecraft.util.profiling.ProfilerFiller;
+ import net.minecraft.world.level.ChunkPos;
  import net.minecraft.world.level.levelgen.structure.BoundingBox;
  
  public class LevelTicks<T> implements LevelTickAccess<T> {
@@ -35,24 +44,31 @@
 +      map.defaultReturnValue(Long.MAX_VALUE);
     });
     private final Queue<LevelChunkTicks<T>> f_193204_ = new PriorityQueue<>(f_193199_);
-    private final Queue<ScheduledTick<T>> f_193205_ = new ArrayDeque<>();
-    private final List<ScheduledTick<T>> f_193206_ = new ArrayList<>();
-    private final Set<ScheduledTick<?>> f_193207_ = new ObjectOpenCustomHashSet<>(ScheduledTick.f_193375_);
+-   private final Queue<ScheduledTick<T>> f_193205_ = new ArrayDeque<>();
+-   private final List<ScheduledTick<T>> f_193206_ = new ArrayList<>();
+-   private final Set<ScheduledTick<?>> f_193207_ = new ObjectOpenCustomHashSet<>(ScheduledTick.f_193375_);
 -   private final BiConsumer<LevelChunkTicks<T>, ScheduledTick<T>> f_193208_ = (p_193249_, p_193250_) -> {
 -      if (p_193250_.equals(p_193249_.m_193189_())) {
 -         this.m_193279_(p_193250_);
++   public final Queue<ScheduledTick<T>> f_193205_ = new ArrayDeque<>();
++   public final List<ScheduledTick<T>> f_193206_ = new ArrayList<>();
++   public final Set<ScheduledTick<?>> f_193207_ = new ObjectOpenCustomHashSet<>(ScheduledTick.f_193375_);
 +   private final BiConsumer<LevelChunkTicks<T>, ScheduledTick<T>> f_193208_ = (chunkTickScheduler, tick) -> {
 +      if (tick.equals(chunkTickScheduler.m_193189_())) {
 +         this.m_193279_(tick);
        }
  
     };
+-
+-   public LevelTicks(LongPredicate p_193211_, Supplier<ProfilerFiller> p_193212_) {
++   public final ServerLevel level;
 +
-+   private final ReadWriteLock accessLock = new ReentrantReadWriteLock();
- 
-    public LevelTicks(LongPredicate p_193211_, Supplier<ProfilerFiller> p_193212_) {
++   public final ReadWriteLock accessLock = new ReentrantReadWriteLock();
++
++   public LevelTicks(LongPredicate p_193211_, Supplier<ProfilerFiller> p_193212_, ServerLevel level) {
        this.f_193200_ = p_193211_;
-@@ -55,75 +_,95 @@
+       this.f_193201_ = p_193212_;
++       this.level = level;
     }
  
     public void m_193231_(ChunkPos p_193232_, LevelChunkTicks<T> p_193233_) {
@@ -257,7 +273,7 @@
           }
  
        }
-@@ -187,40 +_,71 @@
+@@ -187,40 +_,72 @@
     }
  
     private void m_193272_(BiConsumer<BlockPos, T> p_193273_) {
@@ -265,31 +281,30 @@
 -         ScheduledTick<T> scheduledtick = this.f_193205_.poll();
 -         if (!this.f_193207_.isEmpty()) {
 -            this.f_193207_.remove(scheduledtick);
-+      final List<ScheduledTick<T>> toRun = new ArrayList<>();
++      /*final List<ScheduledTick<T>> toRun = new ArrayList<>();
 +
 +      this.accessLock.writeLock().lock();
 +      try {
-+         while(!this.f_193205_.isEmpty()) {
-+            ScheduledTick<T> scheduledTick = this.f_193205_.poll();
-+            if (!this.f_193207_.isEmpty()) {
-+               this.f_193207_.remove(scheduledTick);
++         while(!this.toRunThisTick.isEmpty()) {
++            ScheduledTick<T> scheduledTick = this.toRunThisTick.poll();
++            if (!this.toRunThisTickSet.isEmpty()) {
++               this.toRunThisTickSet.remove(scheduledTick);
 +            }
 +
 +            toRun.add(scheduledTick);
-+            this.f_193206_.add(scheduledTick);
++            this.alreadyRunThisTick.add(scheduledTick);
           }
 -
 -         this.f_193206_.add(scheduledtick);
 -         p_193273_.accept(scheduledtick.f_193377_(), scheduledtick.f_193376_());
--      }
--
 +      }finally {
 +         this.accessLock.writeLock().unlock();
-+      }
-+
+       }
+ 
 +      for (ScheduledTick<T> scheduledTick : toRun){
-+         p_193273_.accept(scheduledTick.f_193377_(), scheduledTick.f_193376_());
-+      }
++         p_193273_.accept(scheduledTick.pos(), scheduledTick.type());
++      }*/
++      ServerThreadingHooks.postRunScheduledTicks(this,p_193273_);
     }
  
     private void m_193284_() {
