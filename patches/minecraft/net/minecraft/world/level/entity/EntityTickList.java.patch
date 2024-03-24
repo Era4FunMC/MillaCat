@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/level/entity/EntityTickList.java
 +++ b/net/minecraft/world/level/entity/EntityTickList.java
-@@ -1,62 +_,28 @@
+@@ -1,62 +_,31 @@
  package net.minecraft.world.level.entity;
  
 -import it.unimi.dsi.fastutil.ints.Int2ObjectLinkedOpenHashMap;
@@ -9,8 +9,12 @@
 -import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
 +import com.google.common.collect.Lists;
 +import java.util.List;
++import java.util.Set;
  import java.util.function.Consumer;
 -import javax.annotation.Nullable;
++
++import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
++import it.unimi.dsi.fastutil.objects.ObjectSets;
  import net.minecraft.world.entity.Entity;
  
  public class EntityTickList {
@@ -33,7 +37,7 @@
 -      }
 -
 -   }
-+   public final List<Entity> entities = Lists.newCopyOnWriteArrayList();
++   public final Set<Entity> entities = ObjectSets.synchronize(new ObjectLinkedOpenHashSet<>());
  
     public void m_156908_(Entity p_156909_) {
 -      this.m_156907_();
@@ -66,8 +70,7 @@
 -            this.f_156905_ = null;
 -         }
 -
-+      for (Entity e : this.entities){
-+         p_156911_.accept(e);
-       }
+-      }
++
     }
  }

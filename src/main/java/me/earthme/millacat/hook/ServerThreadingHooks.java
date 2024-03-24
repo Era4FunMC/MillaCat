@@ -1,30 +1,32 @@
 package me.earthme.millacat.hook;
 
 import com.google.common.collect.Maps;
+import it.unimi.dsi.fastutil.Pair;
 import me.earthme.millacat.concurrent.SplittingTraverseTask;
 import me.earthme.millacat.concurrent.thread.TickForkJoinWorker;
 import me.earthme.millacat.concurrent.thread.TickThreadImpl;
+import me.earthme.millacat.utils.Locatable;
 import net.minecraft.Util;
 import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.TickingBlockEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bukkit.craftbukkit.v1_18_R2.SpigotTimings;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Map;
-import java.util.Queue;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.BooleanSupplier;
+import java.util.stream.Collectors;
 
 public class ServerThreadingHooks {
     private static final Logger logger = LogManager.getLogger();
@@ -34,19 +36,10 @@ public class ServerThreadingHooks {
     private static final ExecutorService worldThreadPool;
     private static final ExecutorService miscThreadPool;
     private static final Map<ServerLevel,AtomicInteger> worldTaskCount = Maps.newConcurrentMap();
-    private static final Map<ServerLevel, ForkJoinTask<?>> worldTileTickTasks = Maps.newConcurrentMap();
     private static final Map<ServerLevel, Queue<Runnable>> worldCallbackTasks = Maps.newConcurrentMap();
     private static final AtomicInteger worldTickTaskCount = new AtomicInteger();
 
     public static void awaitAllTasks(){
-        for (ForkJoinTask<?> task : worldTileTickTasks.values()){
-            try {
-                task.join();
-            }catch (Exception e){
-                e.printStackTrace();
-            }
-        }
-
         for (AtomicInteger taskCount : worldTaskCount.values()){
             while (taskCount.get() > 0){
                 LockSupport.parkNanos(1_000_000);
@@ -113,11 +106,6 @@ public class ServerThreadingHooks {
     }
 
     public static void callGlobalTileEntityTickTask(ServerLevel levelIn){
-        final ForkJoinTask<?> lastTask = worldTileTickTasks.get(levelIn);
-        if (lastTask != null && !lastTask.isDone()){
-            throw new IllegalStateException("Tile entity tick task already running!");
-        }
-
         if (!levelIn.pendingFreshBlockEntities.isEmpty()) {
             levelIn.freshBlockEntities.addAll(levelIn.pendingFreshBlockEntities);
             levelIn.pendingFreshBlockEntities.clear();
@@ -134,13 +122,25 @@ public class ServerThreadingHooks {
             levelIn.pendingBlockEntityTickers.clear();
         }
 
-        worldTileTickTasks.replace(levelIn, SplittingTraverseTask.createNewSubmitted(tickingblockentity -> {
-            if (tickingblockentity.isRemoved()) {
-                levelIn.blockEntityTickers.remove(tickingblockentity);
-            } else if (levelIn.shouldTickBlocksAt(ChunkPos.asLong(tickingblockentity.getPos()))) {
-                tickingblockentity.tick();
-            }
-        },levelIn.blockEntityTickers,tileEntityThreadPool));
+        final AtomicInteger taskCounter = worldTaskCount.get(levelIn);
+        for (Map.Entry<Long, List<Locatable>> split : groupByChunk(levelIn.blockEntityTickers).entrySet()){
+            taskCounter.getAndIncrement();
+            tileEntityThreadPool.execute(()->{
+                try {
+                    for (Locatable l : split.getValue()){
+                        final TickingBlockEntity tickingblockentity = ((TickingBlockEntity) l);
+
+                        if (tickingblockentity.isRemoved()) {
+                            levelIn.blockEntityTickers.remove(tickingblockentity);
+                        } else if (levelIn.shouldTickBlocksAt(ChunkPos.asLong(tickingblockentity.getPos()))) {
+                            tickingblockentity.tick();
+                        }
+                    }
+                }finally {
+                    taskCounter.getAndDecrement();
+                }
+            });
+        }
 
         worldCallbackTasks.get(levelIn).offer(()-> {
             levelIn.tickingBlockEntities = false;
@@ -161,44 +161,50 @@ public class ServerThreadingHooks {
         });
     }
 
-    public static void postEntityTicKTask(@NotNull Entity entityIn){
-        final ServerLevel level = (ServerLevel) entityIn.level;
+    public static Map<Long, List<Locatable>> groupByChunk(Collection<? extends Locatable> dataList) {
+        return dataList.stream().collect(Collectors.groupingBy(Locatable::getChunkKey, LinkedHashMap::new, Collectors.toList()));
+    }
+
+    public static void postEntityTicKTask(ServerLevel level){
         final AtomicInteger taskCounter = worldTaskCount.get(level);
-        taskCounter.getAndIncrement();
+        final List<Runnable> toRun = new ArrayList<>();
 
-        final Runnable task = ()->{
-            try {
-                if (!entityIn.isRemoved()) {
-                    if (level.shouldDiscardEntity(entityIn)) {
-                        entityIn.discard();
-                    } else {
-                        entityIn.checkDespawn();
-                        if (level.getChunkSource().chunkMap.getDistanceManager().inEntityTickingRange(entityIn.chunkPosition().toLong())) {
-                            Entity entity = entityIn.getVehicle();
-                            if (entity != null) {
-                                if (!entity.isRemoved() && entity.hasPassenger(entityIn)) {
-                                    return;
+        for (Map.Entry<Long, List<Locatable>> split : groupByChunk(level.entityTickList.entities).entrySet()){
+            taskCounter.getAndIncrement();
+            toRun.add(() -> {
+                try {
+                    for (Locatable entityInO : split.getValue()){
+                        Entity entityIn = ((Entity) entityInO);
+                        if (!entityIn.isRemoved()) {
+                            if (level.shouldDiscardEntity(entityIn)) {
+                                entityIn.discard();
+                            } else {
+                                entityIn.checkDespawn();
+                                if (level.getChunkSource().chunkMap.getDistanceManager().inEntityTickingRange(entityIn.chunkPosition().toLong())) {
+                                    Entity entity = entityIn.getVehicle();
+                                    if (entity != null) {
+                                        if (!entity.isRemoved() && entity.hasPassenger(entityIn)) {
+                                            return;
+                                        }
+                                        entityIn.stopRiding();
+                                    }
+
+                                    if (!entityIn.isRemoved() && !(entityIn instanceof net.minecraftforge.entity.PartEntity)) {
+                                        level.guardEntityTick(level::tickNonPassenger, entityIn);
+                                    }
                                 }
-                                entityIn.stopRiding();
-                            }
-
-                            if (!entityIn.isRemoved() && !(entityIn instanceof net.minecraftforge.entity.PartEntity)) {
-                                level.guardEntityTick(level::tickNonPassenger, entityIn);
                             }
                         }
                     }
+                }finally {
+                    taskCounter.getAndDecrement();
                 }
-            }finally {
-                taskCounter.getAndDecrement();
-            }
-        };
-
-        if (entityIn instanceof Player){
-            task.run();
-            return;
+            });
         }
 
-        entityThreadPool.execute(task);
+        for (Runnable task : toRun){
+            entityThreadPool.execute(task);
+        }
     }
 
     public static void shutdownAllExecutors(){

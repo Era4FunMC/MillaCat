@@ -56,7 +56,7 @@
 +import org.spigotmc.CustomTimingsHandler;
  
 -public abstract class Entity implements Nameable, EntityAccess, CommandSource {
-+public abstract class Entity extends net.minecraftforge.common.capabilities.CapabilityProvider<Entity> implements Nameable, EntityAccess, CommandSource, net.minecraftforge.common.extensions.IForgeEntity {
++public abstract class Entity extends net.minecraftforge.common.capabilities.CapabilityProvider<Entity> implements Nameable, EntityAccess, CommandSource, net.minecraftforge.common.extensions.IForgeEntity, me.earthme.millacat.utils.Locatable{
     private static final Logger f_19849_ = LogUtils.getLogger();
     public static final String f_146815_ = "id";
     public static final String f_146816_ = "Passengers";
@@ -108,7 +108,7 @@
     protected boolean f_19817_;
     protected int f_19818_;
     protected BlockPos f_19819_;
-@@ -224,11 +_,72 @@
+@@ -224,11 +_,81 @@
     public boolean f_146810_;
     private float f_146803_;
     private int f_146804_;
@@ -161,6 +161,15 @@
 +      return m_6094_();
 +   }
 +   // CraftBukkit end
++   @Override
++   public int chunkX(){
++      return this.f_185933_.f_45578_;
++   }
++
++   @Override
++   public int chunkZ(){
++      return this.f_185933_.f_45579_;
++   }
 +   // CatSever start
 +   @Deprecated
 +   public void setBukkitEntity(CraftEntity bukkitEntity) {

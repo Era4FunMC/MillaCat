@@ -8,7 +8,12 @@
  import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
  import java.util.Map;
  import java.util.Map.Entry;
-@@ -15,6 +_,7 @@
+@@ -12,9 +_,12 @@
+ import java.util.stream.Stream;
+ import java.util.stream.StreamSupport;
+ import javax.annotation.Nullable;
++
++import me.earthme.millacat.utils.Locatable;
  import net.minecraft.CrashReport;
  import net.minecraft.CrashReportCategory;
  import net.minecraft.ReportedException;
@@ -281,10 +286,11 @@
        this.f_187610_.values().forEach((p_187988_) -> {
           this.m_156404_(p_187988_);
           this.m_156406_(p_187988_);
-@@ -605,6 +_,41 @@
+@@ -605,7 +_,42 @@
        this.f_196848_ = p_196865_;
     }
  
+-   class BoundTickingBlockEntity<T extends BlockEntity> implements TickingBlockEntity {
 +   // FORGE START
 +   private final net.minecraftforge.common.capabilities.CapabilityProvider.AsField<LevelChunk> capProvider = new net.minecraftforge.common.capabilities.CapabilityProvider.AsField<>(LevelChunk.class, this);
 +
@@ -320,9 +326,10 @@
 +   }
 +   // FORGE END
 +
-    class BoundTickingBlockEntity<T extends BlockEntity> implements TickingBlockEntity {
++   class BoundTickingBlockEntity<T extends BlockEntity> implements TickingBlockEntity{
        private final T f_156428_;
        private final BlockEntityTicker<T> f_156429_;
+       private boolean f_156430_;
 @@ -621,7 +_,9 @@
              if (LevelChunk.this.m_156410_(blockpos)) {
                 try {

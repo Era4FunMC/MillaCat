@@ -174,7 +174,7 @@
 +    private final ServerChunkCache f_8547_;
 +    private final MinecraftServer f_8548_;
 +    public final ServerLevelData f_8549_;
-+    final EntityTickList f_143243_ = new EntityTickList();
++    public final EntityTickList f_143243_ = new EntityTickList();
 +    public final PersistentEntitySectionManager<Entity> f_143244_;
 +    public boolean f_8564_;
 +    private final SleepStatus f_143245_;
@@ -812,7 +812,7 @@
 +
 +            org.spigotmc.ActivationRange.activateEntities(this); // Spigot
 +            timings.entityTick.startTiming(); // Spigot
-+            this.f_143243_.m_156910_(ServerThreadingHooks::postEntityTicKTask);
++            ServerThreadingHooks.postEntityTicKTask(this);
 +            timings.entityTick.stopTiming(); // Spigot
 +            timings.tickEntities.stopTiming(); // Spigot
 +            profilerfiller.m_7238_();
