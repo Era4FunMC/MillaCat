@@ -434,10 +434,7 @@ public class ForgeHooks
     @Nullable
     public static ItemEntity onPlayerTossEvent(@Nonnull Player player, @Nonnull ItemStack item, boolean includeName)
     {
-        player.captureDrops(Lists.newArrayList());
         ItemEntity ret = player.drop(item, false, includeName);
-        player.captureDrops(null);
-
         if (ret == null)
             return null;
 

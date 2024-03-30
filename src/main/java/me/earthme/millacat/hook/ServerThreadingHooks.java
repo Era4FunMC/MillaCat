@@ -2,6 +2,10 @@ package me.earthme.millacat.hook;
 
 import com.google.common.collect.Maps;
 import it.unimi.dsi.fastutil.Pair;
+import it.unimi.dsi.fastutil.longs.Long2BooleanLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.longs.Long2BooleanMap;
+import it.unimi.dsi.fastutil.longs.Long2BooleanOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
 import me.earthme.millacat.concurrent.SplittingTraverseTask;
 import me.earthme.millacat.concurrent.thread.TickForkJoinWorker;
 import me.earthme.millacat.concurrent.thread.TickThreadImpl;
@@ -21,6 +25,7 @@ import net.minecraft.world.ticks.LevelTicks;
 import net.minecraft.world.ticks.ScheduledTick;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.bukkit.Chunk;
 import org.bukkit.craftbukkit.v1_18_R2.SpigotTimings;
 import org.jetbrains.annotations.NotNull;
 
@@ -128,11 +133,11 @@ public class ServerThreadingHooks {
         }
 
         final AtomicInteger taskCounter = worldTaskCount.get(levelIn);
-        for (Map.Entry<Long, List<Locatable>> split : groupByChunk(levelIn.blockEntityTickers).entrySet()){
+        for (List<Locatable> split : remerge(groupByChunk(levelIn.blockEntityTickers))){
             taskCounter.getAndIncrement();
             tileEntityThreadPool.execute(()->{
                 try {
-                    for (Locatable l : split.getValue()){
+                    for (Locatable l : split){
                         final TickingBlockEntity tickingblockentity = ((TickingBlockEntity) l);
 
                         if (tickingblockentity.isRemoved()) {
@@ -170,6 +175,62 @@ public class ServerThreadingHooks {
         return dataList.stream().collect(Collectors.groupingBy(Locatable::getChunkKey, LinkedHashMap::new, Collectors.toList()));
     }
 
+    public static List<ChunkPos> getNeighbors(ChunkPos pos) {
+        List<ChunkPos> neighbors = new ArrayList<>();
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                if (dx != 0 || dz != 0) {
+                    neighbors.add(new ChunkPos(pos.x + dx, pos.z + dz));
+                }
+            }
+        }
+        return neighbors;
+    }
+
+    public static Collection<List<Locatable>> remerge(Map<Long, List<Locatable>> map) {
+        Map<Long, List<Locatable>> aggregatedMap = new HashMap<>();
+        Set<Long> visited = new HashSet<>();
+
+        for (Long chunkPos : map.keySet()) {
+            if (visited.contains(chunkPos)) {
+                continue; // 如果已访问过该 Chunk，则跳过
+            }
+
+            List<Locatable> locatables = new ArrayList<>();
+            Queue<ChunkPos> queue = new LinkedList<>();
+            queue.offer(new ChunkPos(chunkPos));
+            visited.add(chunkPos);
+
+            while (!queue.isEmpty()) {
+                ChunkPos currentPos = queue.poll();
+                locatables.addAll(map.get(chunkPos));
+
+                for (ChunkPos neighbor : getNeighbors(currentPos)) {
+                    Long neighborKey = neighbor.toLong();
+                    if (!visited.contains(neighborKey) && map.containsKey(neighborKey) &&
+                            distance(currentPos,neighbor) <= 2) {
+                        queue.offer(neighbor);
+                        visited.add(neighborKey);
+                    }
+                }
+            }
+
+            long newKey = (chunkPos >> 32) << 32 | (chunkPos & 0xffffffffL); // 更新 key 为最左上角的 ChunkPos
+            aggregatedMap.put(newKey, locatables);
+        }
+
+
+        return aggregatedMap.values();
+    }
+
+
+    private static double distance(ChunkPos point1, ChunkPos point2) {
+        int deltaX = point2.x - point1.x;
+        int deltaZ = point2.z - point1.z;
+
+        return Math.sqrt(deltaX * deltaX + deltaZ * deltaZ);
+    }
+
     public static <T> void postRunScheduledTicks(LevelTicks<T> ticks, BiConsumer<BlockPos, T> action){
         final List<ScheduledTick<T>> scheduledTicks = new ArrayList<>();
         final AtomicInteger taskCounter = worldTaskCount.get(ticks.level);
@@ -191,11 +252,11 @@ public class ServerThreadingHooks {
 
         final List<Runnable> toRun = new ArrayList<>();
 
-        for (Map.Entry<Long, List<Locatable>> split : groupByChunk(scheduledTicks).entrySet()){
+        for (List<Locatable> split : remerge(groupByChunk(scheduledTicks))){
             taskCounter.getAndIncrement();
             toRun.add(() -> {
                 try {
-                    for (Locatable l : split.getValue()){
+                    for (Locatable l : split){
                         final ScheduledTick<T> scheduledTick = ((ScheduledTick<T>) l);
 
                         action.accept(scheduledTick.pos(), scheduledTick.type());
@@ -215,11 +276,11 @@ public class ServerThreadingHooks {
         final AtomicInteger taskCounter = worldTaskCount.get(level);
         final List<Runnable> toRun = new ArrayList<>();
 
-        for (Map.Entry<Long, List<Locatable>> split : groupByChunk(level.entityTickList.entities).entrySet()){
+        for (List<Locatable> split : remerge(groupByChunk(level.entityTickList.entities))){
             taskCounter.getAndIncrement();
             toRun.add(() -> {
                 try {
-                    for (Locatable entityInO : split.getValue()){
+                    for (Locatable entityInO : split){
                         Entity entityIn = ((Entity) entityInO);
                         if (!entityIn.isRemoved()) {
                             if (level.shouldDiscardEntity(entityIn)) {
