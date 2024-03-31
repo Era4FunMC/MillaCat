@@ -8,7 +8,7 @@
  import it.unimi.dsi.fastutil.objects.ObjectIterator;
  import it.unimi.dsi.fastutil.objects.ObjectOpenCustomHashSet;
  import java.util.ArrayDeque;
-@@ -16,114 +_,143 @@
+@@ -16,114 +_,142 @@
  import java.util.PriorityQueue;
  import java.util.Queue;
  import java.util.Set;
@@ -149,9 +149,9 @@
 +      //profilerFiller.incrementCounter("ticksToRun", this.toRunThisTick.size()); // Purpur
        this.m_193272_(p_193228_);
 -      profilerfiller.m_6182_("cleanup");
-+      //profilerFiller.popPush("cleanup"); // Purpur
-       this.m_193284_();
+-      this.m_193284_();
 -      profilerfiller.m_7238_();
++      //profilerFiller.popPush("cleanup"); // Purpur
 +      //profilerFiller.pop(); // Purpur
     }
  
@@ -297,21 +297,28 @@
 -
 -         this.f_193206_.add(scheduledtick);
 -         p_193273_.accept(scheduledtick.f_193377_(), scheduledtick.f_193376_());
-+      }finally {
-+         this.accessLock.writeLock().unlock();
-       }
- 
-+      for (ScheduledTick<T> scheduledTick : toRun){
-+         p_193273_.accept(scheduledTick.pos(), scheduledTick.type());
-+      }*/
-+      ServerThreadingHooks.postRunScheduledTicks(this,p_193273_);
-    }
- 
-    private void m_193284_() {
+-      }
+-
+-   }
+-
+-   private void m_193284_() {
 -      this.f_193205_.clear();
 -      this.f_193204_.clear();
 -      this.f_193206_.clear();
 -      this.f_193207_.clear();
+-   }
+-
++      }finally {
++         this.accessLock.writeLock().unlock();
++      }
++
++      for (ScheduledTick<T> scheduledTick : toRun){
++         p_193273_.accept(scheduledTick.pos(), scheduledTick.type());
++      }*/
++      ServerThreadingHooks.postRunScheduledTicks(this,p_193273_);
++   }
++
++   public void m_193284_() {
 +      this.accessLock.writeLock().lock();
 +      try {
 +         this.f_193205_.clear();
@@ -321,8 +328,8 @@
 +      }finally {
 +         this.accessLock.writeLock().unlock();
 +      }
-    }
- 
++   }
++
 +   @Override
     public boolean m_183582_(BlockPos p_193254_, T p_193255_) {
 -      LevelChunkTicks<T> levelchunkticks = this.f_193202_.get(ChunkPos.m_151388_(p_193254_));

@@ -7,7 +7,7 @@ public interface Locatable {
 
     int chunkZ();
 
-    default long getChunkKey(){
-        return ChunkPos.asLong(this.chunkX(),this.chunkZ());
+    default ChunkPos getChunkKey(){
+        return new ChunkPos(this.chunkX(),this.chunkZ());
     }
 }

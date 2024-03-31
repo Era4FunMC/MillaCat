@@ -133,7 +133,7 @@ public class ServerThreadingHooks {
         }
 
         final AtomicInteger taskCounter = worldTaskCount.get(levelIn);
-        for (List<Locatable> split : remerge(groupByChunk(levelIn.blockEntityTickers))){
+        for (List<Locatable> split : mergePointsWithinDistance(groupByChunk(levelIn.blockEntityTickers)).values()){
             taskCounter.getAndIncrement();
             tileEntityThreadPool.execute(()->{
                 try {
@@ -171,7 +171,7 @@ public class ServerThreadingHooks {
         });
     }
 
-    public static Map<Long, List<Locatable>> groupByChunk(Collection<? extends Locatable> dataList) {
+    public static Map<ChunkPos, List<Locatable>> groupByChunk(Collection<? extends Locatable> dataList) {
         return dataList.stream().collect(Collectors.groupingBy(Locatable::getChunkKey, LinkedHashMap::new, Collectors.toList()));
     }
 
@@ -187,6 +187,84 @@ public class ServerThreadingHooks {
         return neighbors;
     }
 
+    public static Map<ChunkPos, List<Locatable>> mergePointsWithinDistance(Map<ChunkPos, List<Locatable>> map) {
+        Map<ChunkPos, List<Locatable>> result = new HashMap<>();
+        Set<Set<ChunkPos>> mergedPointSets = new HashSet<>();
+
+        for (ChunkPos startPoint : map.keySet()) {
+            if (!isMerged(startPoint, mergedPointSets)) {
+                Set<ChunkPos> mergedPoints = bfs(startPoint, map);
+                mergedPointSets.add(mergedPoints);
+
+                List<Locatable> mergedData = new ArrayList<>();
+                for (ChunkPos p : mergedPoints) {
+                    mergedData.addAll(map.get(p));
+                }
+
+                ChunkPos centroid = calculateCentroid(mergedPoints);
+                result.put(centroid, mergedData);
+            }
+        }
+
+        return result;
+    }
+
+    private static boolean isMerged(ChunkPos point, Set<Set<ChunkPos>> mergedPointSets) {
+        for (Set<ChunkPos> mergedPoints : mergedPointSets) {
+            if (mergedPoints.contains(point)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static Set<ChunkPos> bfs(ChunkPos startPoint, Map<ChunkPos, List<Locatable>> map) {
+        Set<ChunkPos> visited = new HashSet<>();
+        Queue<ChunkPos> queue = new LinkedList<>();
+        Set<ChunkPos> mergedPoints = new HashSet<>();
+        double threshold = 1.5;
+
+        queue.offer(startPoint);
+        visited.add(startPoint);
+
+        while (!queue.isEmpty()) {
+            ChunkPos currentPoint = queue.poll();
+            mergedPoints.add(currentPoint);
+
+            for (ChunkPos neighbor : map.keySet()) {
+                if (!visited.contains(neighbor) && calculateDistance(currentPoint, neighbor) < threshold) {
+                    visited.add(neighbor);
+                    queue.offer(neighbor);
+                }
+            }
+        }
+
+        return mergedPoints;
+    }
+
+    private static double calculateDistance(ChunkPos p1, ChunkPos p2) {
+        // Calculate distance between two points
+        return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.z - p2.z, 2));
+    }
+
+
+    private static ChunkPos calculateCentroid(Set<ChunkPos> points) {
+        int totalX = 0;
+        int totalZ = 0;
+
+        for (ChunkPos p : points) {
+            totalX += p.x;
+            totalZ += p.z;
+        }
+
+        int centroidX = totalX / points.size();
+        int centroidY = totalZ / points.size();
+
+        return new ChunkPos(centroidX, centroidY);
+    }
+
+
+
     public static Collection<List<Locatable>> remerge(Map<Long, List<Locatable>> map) {
         Map<Long, List<Locatable>> aggregatedMap = new HashMap<>();
         Set<Long> visited = new HashSet<>();
@@ -198,7 +276,7 @@ public class ServerThreadingHooks {
 
             List<Locatable> locatables = new ArrayList<>();
             Queue<ChunkPos> queue = new LinkedList<>();
-            queue.offer(new ChunkPos(chunkPos));
+            queue.offer(new ChunkPos((int) (chunkPos >> 32), (int) (chunkPos & 0xffffffffL)));
             visited.add(chunkPos);
 
             while (!queue.isEmpty()) {
@@ -206,7 +284,7 @@ public class ServerThreadingHooks {
                 locatables.addAll(map.get(chunkPos));
 
                 for (ChunkPos neighbor : getNeighbors(currentPos)) {
-                    Long neighborKey = neighbor.toLong();
+                    Long neighborKey =  (((long) neighbor.x << 32) | neighbor.z);
                     if (!visited.contains(neighborKey) && map.containsKey(neighborKey) &&
                             distance(currentPos,neighbor) <= 2) {
                         queue.offer(neighbor);
@@ -218,7 +296,6 @@ public class ServerThreadingHooks {
             long newKey = (chunkPos >> 32) << 32 | (chunkPos & 0xffffffffL); // 更新 key 为最左上角的 ChunkPos
             aggregatedMap.put(newKey, locatables);
         }
-
 
         return aggregatedMap.values();
     }
@@ -252,7 +329,7 @@ public class ServerThreadingHooks {
 
         final List<Runnable> toRun = new ArrayList<>();
 
-        for (List<Locatable> split : remerge(groupByChunk(scheduledTicks))){
+        for (List<Locatable> split : mergePointsWithinDistance(groupByChunk(scheduledTicks)).values()){
             taskCounter.getAndIncrement();
             toRun.add(() -> {
                 try {
@@ -270,13 +347,15 @@ public class ServerThreadingHooks {
         for (Runnable task : toRun){
             miscThreadPool.execute(task);
         }
+
+        worldCallbackTasks.get(ticks.level).offer(ticks::cleanupAfterTick);
     }
 
     public static void postEntityTicKTask(ServerLevel level){
         final AtomicInteger taskCounter = worldTaskCount.get(level);
         final List<Runnable> toRun = new ArrayList<>();
 
-        for (List<Locatable> split : remerge(groupByChunk(level.entityTickList.entities))){
+        for (List<Locatable> split : mergePointsWithinDistance(groupByChunk(level.entityTickList.entities)).values()){
             taskCounter.getAndIncrement();
             toRun.add(() -> {
                 try {
